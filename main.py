@@ -63,11 +63,11 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         states.append(i['name'])
     #printJson(states) # Only for debug purpouse, enable line below to stamp stdout ini settings
     if states:
-        command_options = []
-        for i in states:
-            command_options.append(InlineKeyboardButton(i, callback_data=i))
-        keyboard = [command_options]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        buttons = []
+        for state in states:
+            buttons.append([InlineKeyboardButton(state, callback_data=state)])
+        #keyboard = [command_options]
+        reply_markup = InlineKeyboardMarkup(buttons)
         await context.bot.send_message(chat_id=update.effective_chat.id, text='Push one state to activate:', reply_markup=reply_markup)
     else:
         print('No states found \u26A0\ufe0f')
