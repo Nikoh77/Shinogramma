@@ -1,5 +1,6 @@
+#This module is needed by the main and takes care of the control and generation of the ShinotifyTB configuration file through input requests.
+
 import configparser
-import json
 
 settings = {}
 
@@ -26,7 +27,11 @@ def iniCheck(needed,config_file):
         options = config.items(section)
         data = {}
         for option, value in options:
+            if option == 'chat_id': # If chat_id (comma separated) are defined
+                value = [int(id.strip()) for id in value.split(',')] # I turn them into a list
             data[option] = value
         settings[section] = data
-    #printJson(settings, "INI settings") # Only for debug purpouse, enable line below to stamp stdout ini settings
-    return True      
+    if settings:
+        return True
+    else:
+        return False

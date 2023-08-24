@@ -1,14 +1,13 @@
 # This Bot is intended to control ShinobiCCTV, at this moment it is possible to activate states but I am working on....
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github 
 # or donate me a coffee with Paypal
-# ToDo: if "chat_id" in INI file is populated implement control that the bot should only respond to authorized ids
 
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from functools import wraps
 import ini_check
 import logging
 import requests
-import json
 
 # Defining root variables
 config_file = "config.ini"
@@ -19,10 +18,23 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+def restricted(func):
+    @wraps(func)
+    async def wrapped(update, context, *args, **kwargs):
+        user_id = update.effective_user.id
+        if user_id not in settings['Telegram']['chat_id']:
+            print("Unauthorized access denied for {}.".format(user_id))
+            await context.bot.send_message(chat_id=update.effective_chat.id,text='Unauthorized \u26A0\ufe0f')
+            return
+        return func(update, context, *args, **kwargs)
+    return wrapped
+
 # Telegram/Bot commands definition:
+@restricted 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Shinotify Bot, and I am ready!\nGlad to serve you \u263A")
-    
+
+@restricted    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = "Available commands are:\n"
     help_text += "/start - Start this bot\n"
@@ -30,13 +42,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text += "/help - Where you are\n"
     await context.bot.send_message(chat_id=update.effective_chat.id,text=help_text)
 
+@restricted
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitorStates/{settings['Shinobi']['group_key']}"
     response = requests.get(url).json()
     states = []
     for i in response['presets']:
         states.append(i['name'])
-    #printJson(states) # Only for debug purpouse, enable line below to stamp stdout ini settings
     if states:
         buttons = []
         for state in states:
@@ -48,6 +60,7 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print('No states found \u26A0\ufe0f')
         await context.bot.send_message(chat_id=update.effective_chat.id, text='No states found \u26A0\ufe0f')
 
+@restricted 
 async def callback_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     state = query.data
@@ -63,11 +76,6 @@ async def callback_handler(update: Update, context: CallbackContext):
     else:
         print(f'No states found \u26A0\ufe0f')
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f'No states found \u26A0\ufe0f')
-    
-def printJson(value, text = 'nothing'):
-    json_output = json.dumps(value, indent=4)
-    print(f"\n{text} (JSON output):")
-    print(json_output)
 
 if __name__ == '__main__':
     needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}
