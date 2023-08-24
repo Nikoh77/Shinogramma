@@ -12,8 +12,13 @@ In addition to the mandatory parameters, there are some optional ones, such as c
 Using chat_id, you can restrict the usage of the bot to only the Telegram users you desire, such as you and your family members, so that no one else can manipulate your things ;-)\
 The IDs should be entered in the config.ini file as follows:
 chat_id = 6588899, 77778888, 888888887
+## Installation:
+Just install python-telegram-bot with ```pip install python-telegram-bot```\
+clone this repo with ```git clone https://github.com/Nikoh77/ShinotifyTB.git```\
+and start it with ```cd ShinotifyTB && python3 main.py```
 
 I highly recommend a server installation, meaning the bot runs as a service rather than a user application. If you're a Linux user, I suggest installing it without a desktop environment and configuring it as a service managed by systemd, but this goes beyond the scope of this writing.
+
 
 For any questions, you can find me on the official Shinobi Discord server (if I don't respond, please ping me).
 Lastly, please report any malfunctions or bugs.\Feel free to expand my code with new features or simply clean it up and/or make it more efficient. If you do so, create a pull request, and I'll be happy to accept it.
