@@ -27,7 +27,7 @@ def iniCheck(needed,config_file):
         options = config.items(section)
         data = {}
         for option, value in options:
-            if option == 'chat_id': # If chat_id (comma separated) are defined
+            if option == 'chat_id' and value: # If chat_id (comma separated) are defined
                 value = [int(id.strip()) for id in value.split(',')] # I turn them into a list
             data[option] = value
         settings[section] = data
