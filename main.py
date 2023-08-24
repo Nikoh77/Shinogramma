@@ -5,46 +5,21 @@
 
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import ini_check
 import logging
 import requests
 import json
-import configparser
-import os
 
 # Defining root variables
 config_file = "config.ini"
-dataIni = {}
-
+settings = {}
 # Start logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-def clean_config_value(value):
-    # Remove comments after '#' character
-    return value.split("#")[0].strip()
-
-def iniExistence():
-    if os.path.exists(config_file): 
-        # Create a ConfigParser object
-        config = configparser.ConfigParser()
-        config.read(config_file)
-        # Read INI file
-        for section in config.sections():
-            options = config.items(section)
-            data = {}
-            for option, value in options:
-                cleaned_value = clean_config_value(value)
-                data[option] = cleaned_value
-            dataIni[section] = data
-        #printJson(dataIni, "INI settings") # Only for debug purpouse, enable line below to stamp stdout ini settings
-        return(True)
-    else:
-        print(f"Config file '{config_file}' not found.")
-        return(False)
-    
-        # Telegram/Bot commands definition:
+# Telegram/Bot commands definition:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Shinotify Bot, and I am ready!\nGlad to serve you \u263A")
     
@@ -56,7 +31,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id,text=help_text)
 
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = f"{dataIni['Shinobi']['url']}:{dataIni['Shinobi']['port']}/{dataIni['Shinobi']['api_key']}/monitorStates/{dataIni['Shinobi']['group_key']}"
+    url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitorStates/{settings['Shinobi']['group_key']}"
     response = requests.get(url).json()
     states = []
     for i in response['presets']:
@@ -77,7 +52,7 @@ async def callback_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     state = query.data
     if state:
-        url = f"{dataIni['Shinobi']['url']}:{dataIni['Shinobi']['port']}/{dataIni['Shinobi']['api_key']}/monitorStates/{dataIni['Shinobi']['group_key']}/{state}"
+        url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitorStates/{settings['Shinobi']['group_key']}/{state}"
         response = requests.get(url)
         if response.status_code != 200:
             print(f'something went wrong, request error \u26A0\ufe0f')
@@ -95,8 +70,11 @@ def printJson(value, text = 'nothing'):
     print(json_output)
 
 if __name__ == '__main__':
-    if iniExistence():
-        application = ApplicationBuilder().token(dataIni['Telegram']['api_key']).build()
+    needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}
+    result = ini_check.iniCheck(needed,config_file)
+    if result:
+        settings = ini_check.settings
+        application = ApplicationBuilder().token(settings['Telegram']['api_key']).build()
         
         start_handler = CommandHandler('start', start_command)
         help_handler = CommandHandler('help', help_command)
