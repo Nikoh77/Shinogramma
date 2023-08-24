@@ -15,20 +15,19 @@ settings = {}
 # Start logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.WARNING
 )
 
 def restricted(func):
     @wraps(func)
-    async def wrapped(update, context, *args, **kwargs):
+    def wrapped(update, context, *args, **kwargs):
         if not settings['Telegram']['chat_id']:
-            return await func(update, context, *args, **kwargs)
+            return func(update, context, *args, **kwargs)
         user_id = update.effective_user.id
         if user_id not in settings['Telegram']['chat_id']:
             print("Unauthorized access denied for {}.".format(user_id))
-            await context.bot.send_message(chat_id=update.effective_chat.id,text='Unauthorized \u26A0\ufe0f')
             return
-        return await func(update, context, *args, **kwargs)
+        return func(update, context, *args, **kwargs)
     return wrapped
 
 # Telegram/Bot commands definition:
