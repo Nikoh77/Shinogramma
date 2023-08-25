@@ -1,5 +1,5 @@
 # ShinotifyTB (Telegram Bot)
-![Create-a-Telegram-Bot](https://github.com/Nikoh77/ShinotifyTB/assets/7826178/cd9f5403-3d4c-47b7-b360-2fdcbff6b58b)
+![ShinotifyTB](https://github.com/Nikoh77/ShinotifyTB/assets/7826178/24a15ed6-09ab-4267-91a2-484198f4abaf)
 This BOT has been created to manage Shinobi CCTV (more info at https://shinobi.video) through Telegram.
 Currently, it allows listing the states present on the server and activating them. Technically, it can do much more, but for now, it's sufficient for my needs.\
 ShinotifyTB can run on any computer with Python 3 and an internet connection. It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router.\
