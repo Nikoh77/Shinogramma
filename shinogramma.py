@@ -1,6 +1,7 @@
-# This Bot is intended to control ShinobiCCTV, at this moment it is possible to activate states but I am working on....
+# This software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram,
+# right now it is possible to activate statuses but I'm working on it....
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github 
-# or donate me a coffee with Paypal
+# or donate me a coffee
 
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
