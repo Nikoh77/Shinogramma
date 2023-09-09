@@ -16,7 +16,8 @@ chat_id = 6588899, 77778888, 888888887
 ## Installation:
 Just install python-telegram-bot with ```pip install python-telegram-bot```\
 clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
-and start it with ```cd Shinogramma && python3 shinogramma.py```
+and start it with ```cd Shinogramma && python3 shinogramma.py```\
+### or execute install.sh (after giving him exec rights)
 
 I highly recommend a server installation, meaning the bot runs as a service rather than a user application. If you're a Linux user, I suggest installing it without a desktop environment and configuring it as a service managed by systemd, but this goes beyond the scope of this writing.
 
