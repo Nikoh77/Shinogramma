@@ -43,18 +43,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Below line is to remember how to set a context but unusefull IMHO, tag system work mutch better...
     # context.user_data["originating_function"] = inspect.currentframe().f_code.co_name
     desc='Start this bot'
-    
+    tag = 'start'
     keyboard=[]
     for command in commands:
-            keyboard.append([InlineKeyboardButton(command['command'], callback_data=command['name'])])
+        keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
     reply_markup = ReplyKeyboardMarkup(keyboard)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Shinotify Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
     # Below line is to remember how to update/edit a sended message
-    #await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
+    # await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
 
 @restricted    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     desc='Where you are'
+    tag = 'help'
     help_text = "Available commands are:\n"
     for command in commands:
         help_text += f'{command["desc"]}\n'
@@ -195,6 +196,7 @@ async def callback_handler(update: Update, context: CallbackContext):
     elif tag=='configuremonitor':
         endpoint = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/configureMonitor/{settings['Shinobi']['group_key']}/{selection}"
         queryurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{selection}"
+        print(queryurl)
         response = requests.get(queryurl)
         if response.status_code != 200:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
@@ -204,23 +206,24 @@ async def callback_handler(update: Update, context: CallbackContext):
             print(f'OK, server touched... \U0001F44D')
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
             response = response.json()
-            data = json.loads(response[0]['details'])
-            key = inputdata[2]
-            value = inputdata[3]
-            data[key] = value
-            print(type(data))
-            data = str(data)
-            print(type(data))
-            print(endpoint)
-            response = requests.post(endpoint, data=data)
-            if response.status_code != 200:
-                print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
-                return
-            else:
-                print(f'OK, done \U0001F44D')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
-
+            data = response[0]
+            print(data)
+            if 'details' in data:
+                details = json.loads(data['details'])
+                
+                key = inputdata[2]
+                value = inputdata[3]
+                details[key] = value
+                data['details'] = json.dumps(details)
+                #print(data)
+                response = requests.post(endpoint, data=data)
+                if response.status_code != 200:
+                    print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+                    return
+                else:
+                    print(f'OK, done \U0001F44D')
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
 @restricted
 async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
     tag='configuremonitor'
