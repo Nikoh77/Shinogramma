@@ -197,8 +197,7 @@ async def callback_handler(update: Update, context: CallbackContext):
         endpoint = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/configureMonitor/{settings['Shinobi']['group_key']}/{selection}"
         queryurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{selection}"
         print(queryurl)
-        headers = {'Accept': 'text/plain'}
-        response = requests.get(queryurl, headers=headers)
+        response = requests.get(queryurl)
         if response.status_code != 200:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
             await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
@@ -206,17 +205,17 @@ async def callback_handler(update: Update, context: CallbackContext):
         else:
             print(f'OK, server touched... \U0001F44D')
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
-            data = json.loads(response.text)
-            print(type(data[0].get('details')))
-            #data = response[0]
+            response = response.json()
+            #print(response)
+            data = response[0]
+            #print(json.dumps(data, indent=4))
             if 'details' in data:
-            #    data['details'] = data['details'].replace('"snap":"0"', '"snap":1')
-                #details = json.loads(data['details'])
+                details = json.loads(data['details'])
+                print(details)
                 key = inputdata[2]
                 value = inputdata[3]
                 details[key] = value
                 data['details'] = json.dumps(details)
-                print(data)
                 response = requests.post(endpoint, data=str(data))
                 if response.status_code != 200:
                     print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
