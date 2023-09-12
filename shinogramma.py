@@ -197,7 +197,8 @@ async def callback_handler(update: Update, context: CallbackContext):
         endpoint = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/configureMonitor/{settings['Shinobi']['group_key']}/{selection}"
         queryurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{selection}"
         print(queryurl)
-        response = requests.get(queryurl)
+        headers = {'Accept': 'text/plain'}
+        response = requests.get(queryurl, headers=headers)
         if response.status_code != 200:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
             await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
@@ -205,18 +206,18 @@ async def callback_handler(update: Update, context: CallbackContext):
         else:
             print(f'OK, server touched... \U0001F44D')
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
-            response = response.json()
-            data = response[0]
-            print(data)
+            data = json.loads(response.text)
+            print(type(data[0].get('details')))
+            #data = response[0]
             if 'details' in data:
-                details = json.loads(data['details'])
-                
+            #    data['details'] = data['details'].replace('"snap":"0"', '"snap":1')
+                #details = json.loads(data['details'])
                 key = inputdata[2]
                 value = inputdata[3]
                 details[key] = value
                 data['details'] = json.dumps(details)
-                #print(data)
-                response = requests.post(endpoint, data=data)
+                print(data)
+                response = requests.post(endpoint, data=str(data))
                 if response.status_code != 200:
                     print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
                     await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
