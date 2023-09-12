@@ -12,6 +12,7 @@ import requests
 import inspect
 import re
 import json
+import time
 
 # Defining root variables
 config_file = "config.ini"
@@ -153,13 +154,15 @@ async def callback_handler(update: Update, context: CallbackContext):
                 return
             else:
                 print(f'OK, done \U0001F44D')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, server touched... \U0001F44D')
                 response = response.json()
                 data = json.loads(response[0]['details'])
-                snap = int(data.get('snap'))
-                if snap:
+                snap = int()
+                if data.get('snap')=='1':
                     await query.answer("Cooking your snapshot...\U0001F373")
-                    url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/jpeg/{settings['Shinobi']['group_key']}/{inputdata[2]}/s.jpg"
+                    baseurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/jpeg/{settings['Shinobi']['group_key']}/{inputdata[2]}/s.jpg"
+                    avoidcacheurl = str(int(time.time()))
+                    url = baseurl+'?'+avoidcacheurl
                     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=url)
                 else:
                     key = 'snap'
@@ -190,7 +193,6 @@ async def callback_handler(update: Update, context: CallbackContext):
         elif selection=='configure':
             pass
     elif tag=='configuremonitor':
-        print('dentro editmonitor')
         endpoint = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/configureMonitor/{settings['Shinobi']['group_key']}/{selection}"
         queryurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{selection}"
         response = requests.get(queryurl)
@@ -199,19 +201,18 @@ async def callback_handler(update: Update, context: CallbackContext):
             await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
             return
         else:
-            print(f'OK, done \U0001F44D')
+            print(f'OK, server touched... \U0001F44D')
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
             response = response.json()
             data = json.loads(response[0]['details'])
-            print(type(data[inputdata[2]]), (data[inputdata[2]]), inputdata[3], type(data))
-            print(data)
-            #if data[inputdata[2]]:
-            data[inputdata[2]] = inputdata[3]
-            print(data)
-            #url = endpoint + str(data)
+            key = inputdata[2]
+            value = inputdata[3]
+            data[key] = value
+            print(type(data))
+            data = str(data)
+            print(type(data))
             print(endpoint)
-            #headers = {"Authorization": settings['Shinobi']['api_key']}
-            response = requests.post(endpoint, json=data)
+            response = requests.post(endpoint, data=data)
             if response.status_code != 200:
                 print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
                 await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
@@ -255,7 +256,9 @@ if __name__ == '__main__':
             for command in commands:
                 handlers.append(CommandHandler(f'{command["command"]}', command["func"]))
             application.add_handlers(handlers)
+            print('ShinogrammaBot Up and running')
             application.run_polling()
+
         else:
             print('INI file missed, please provide one.')
 
