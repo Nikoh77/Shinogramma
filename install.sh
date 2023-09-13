@@ -49,21 +49,4 @@ else
     exit 1
 fi
 
-# Change directory to the installation directory (if different from '.')
-if [ "$install_dir" != "." ]; then
-    cd "$install_dir"
-fi
-
-# Run the Python script
-echo "Running the Python script..."
-python3 shinogramma.py
-
-# Check if the Python script was executed successfully
-if [ $? -eq 0 ]; then
-    echo "The Python script was executed successfully."
-else
-    echo "Error during the execution of the Python script."
-    exit 1
-fi
-
 exit 0
