@@ -209,9 +209,14 @@ async def callback_handler(update: Update, context: CallbackContext):
             #print(response)
             data = response[0]
             #print(json.dumps(data, indent=4))
+            for element in response:
+                if 'details' in element:
+                    print('elemento trovato')
+                    for key in element:
+                        print(key, ':', element.get(key), type(element.get(key)))
+                    
             if 'details' in data:
                 details = json.loads(data['details'])
-                print(details)
                 key = inputdata[2]
                 value = inputdata[3]
                 details[key] = value
@@ -224,6 +229,13 @@ async def callback_handler(update: Update, context: CallbackContext):
                 else:
                     print(f'OK, done \U0001F44D')
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+
+def disAssebleMonitor():
+    pass
+
+def reAssebleMonitor():
+    pass
+
 @restricted
 async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
     tag='configuremonitor'
