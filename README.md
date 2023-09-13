@@ -1,7 +1,7 @@
 # Shinogramma
 ![Shinogramma](https://github.com/Nikoh77/ShinotifyTB/assets/7826178/24a15ed6-09ab-4267-91a2-484198f4abaf)
-### The development of Shinogramma is at a standstill, unfortunately I am not able to move forward, we need to implement the code for modifying the monitor parameters, I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to proceed with development....
-I don't know if the problem is in Shinobi's restuful bees or in my skills (which are certainly not excellent) in any case this is how things are, I'm looking for help to be able to proceed with development.
+### The development of Shinogramma is at a standstill, unfortunately I am not able to move forward, I need to implement the code for modifying the monitor parameters, I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to proceed with development....
+
 This software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram, right now it is possible to activate statuses and take snapshots but I'm working on it....\
 Shinogramma can run on any computer with Python 3 and an internet connection.\
 It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router.
