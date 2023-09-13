@@ -48,7 +48,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for command in commands:
         keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
     reply_markup = ReplyKeyboardMarkup(keyboard)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Shinotify Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
     # Below line is to remember how to update/edit a sended message
     # await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
 
@@ -57,9 +57,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     desc='Where you are'
     tag = 'help'
     help_text = "Available commands are:\n"
+    keyboard=[]
     for command in commands:
         help_text += f'{command["desc"]}\n'
-    await context.bot.send_message(chat_id=update.effective_chat.id,text=help_text)
+        keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
+    reply_markup = ReplyKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id,text=help_text, reply_markup=reply_markup)
+
 
 @restricted
 async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -196,7 +200,6 @@ async def callback_handler(update: Update, context: CallbackContext):
     elif tag=='configuremonitor':
         endpoint = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/configureMonitor/{settings['Shinobi']['group_key']}/{selection}"
         queryurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{selection}"
-        print(queryurl)
         response = requests.get(queryurl)
         if response.status_code != 200:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
@@ -205,36 +208,39 @@ async def callback_handler(update: Update, context: CallbackContext):
         else:
             print(f'OK, server touched... \U0001F44D')
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
-            response = response.json()
-            #print(response)
-            data = response[0]
-            #print(json.dumps(data, indent=4))
-            for element in response:
-                if 'details' in element:
-                    print('elemento trovato')
-                    for key in element:
-                        print(key, ':', element.get(key), type(element.get(key)))
-                    
-            if 'details' in data:
-                details = json.loads(data['details'])
-                key = inputdata[2]
-                value = inputdata[3]
-                details[key] = value
-                data['details'] = json.dumps(details)
-                response = requests.post(endpoint, data=str(data))
+            data=disAssebleMonitor(response.json())
+            if 'snap' in data.get('details'):
+                data['details']['snap']='1'
+                print(data)
+                response = requests.post(endpoint, str(data))
                 if response.status_code != 200:
                     print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
+                    print(response.text)
                     await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
                     return
                 else:
                     print(f'OK, done \U0001F44D')
+                    print(response.text)
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+            else:
+                pass
 
-def disAssebleMonitor():
-    pass
+def disAssebleMonitor(response):
+    print('disassembling monitor...')
+    #response = response.json()
+    monitor=response[0]
+    for key in monitor:
+        if type(monitor.get(key))==str:
+            if is_valid_json(monitor.get(key)):
+                monitor[key]=json.loads(monitor.get(key))
+    return(monitor)
 
-def reAssebleMonitor():
-    pass
+def is_valid_json(my_json):
+    try:
+        json.loads(my_json)
+        return True
+    except json.JSONDecodeError:
+        return False
 
 @restricted
 async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
