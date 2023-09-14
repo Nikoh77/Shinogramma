@@ -209,40 +209,42 @@ async def callback_handler(update: Update, context: CallbackContext):
             print(f'OK, server touched... \U0001F44D')
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
             data=disAssebleMonitor(response.json())
-            # if 'snap' in data.get('details'):
-            #     data['details']['snap']='1'
-            #     #print(data)
-            #     response = requests.post(endpoint, str(data))
-            #     if response.status_code != 200:
-            #         print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-            #         print(response.text)
-            #         await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
-            #         return
-            #     else:
-            #         print(f'OK, done \U0001F44D')
-            #         print(response.text)
-            #         await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
-            # else:
-            #     pass
+            print(f'posting data: \n {data}')
+            response = requests.post(endpoint, data=data)
+            if response.status_code != 200:
+                print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
+                print(response.text)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+                return
+            else:
+                print(f'OK, done \U0001F44D')
+                print(response.text)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+
 
 def disAssebleMonitor(response):
     print('disassembling monitor...')
     #response = response.json()
     monitor=response[0]
     monitor['details']=json.loads(monitor.get('details'))
+    monitor['details']['snap'] = "1"
+    #monitor['details']=str(monitor.get('details'))
     # monitor.pop('details')
+    print('reassembling monitor...')
+    # Needed keys to make API query
     keys=['mode', 'mid', 'name', 'tags', 'type', 'protocol', 'host', 'port', 'path', 'height', 'width', 'ext', 'fps', 'details']
-    test={}
+    query={}
     for key in keys:
-        test[key]=monitor.get(key)
+        query[key]=monitor.get(key)
     
     
     # for key in monitor:
     #     if type(monitor.get(key))==str:
     #         if is_valid_json(monitor.get(key)):
     #             monitor[key]=json.loads(monitor.get(key))
-    print(test)
-    return(monitor)
+
+    return(json.dumps(query, indent=4))
+    #return(test)
 
 def is_valid_json(my_json):
     try:
