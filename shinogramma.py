@@ -4,7 +4,7 @@
 # or donate me a coffee
 
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, constants
 from functools import wraps
 import ini_check
 import logging
@@ -30,9 +30,9 @@ def restricted(func):
         if not settings.get('Telegram').get('chat_id'):
             print('WARN: chat_id not defined, continuing...')
             return func(update, context, *args, **kwargs)
-        user_id = update.effective_user.id
-        if user_id not in settings['Telegram']['chat_id']:
-            print("Unauthorized access denied for {}.".format(user_id))
+        chat_id = update.effective_user.id
+        if chat_id not in settings['Telegram']['chat_id']:
+            print("Unauthorized access denied for {}.".format(chat_id))
             return
         return func(update, context, *args, **kwargs)
     return wrapped
@@ -42,95 +42,106 @@ def restricted(func):
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Below line is to remember how to set a context but unusefull IMHO, tag system work mutch better...
     # context.user_data["originating_function"] = inspect.currentframe().f_code.co_name
+    chat_id=update.effective_chat.id
     desc='Start this bot'
     tag = 'start'
     keyboard=[]
     for command in commands:
         keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
     reply_markup = ReplyKeyboardMarkup(keyboard)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=chat_id, text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
     # Below line is to remember how to update/edit a sended message
     # await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
 
 @restricted    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
     desc='Where you are'
     tag = 'help'
+    await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
     help_text = "Available commands are:\n"
     keyboard=[]
     for command in commands:
         help_text += f'{command["desc"]}\n'
         keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
     reply_markup = ReplyKeyboardMarkup(keyboard)
-    await context.bot.send_message(chat_id=update.effective_chat.id,text=help_text, reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=chat_id,text=help_text, reply_markup=reply_markup)
 
 
 @restricted
 async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
     desc='List all monitors'
     tag='monitors'
     url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}"
     response = requests.get(url)
     if response.status_code != 200:
         print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-        await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+        await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
         return
     else:
         print(f'OK, done \U0001F44D')
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+        await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
         response = response.json()
         monitors = []
         for i in response:
             monitors.append({'name':i['name'],'id':i['mid']})
         if monitors:
+            await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
             buttons = []
             for monitor in monitors:
                 buttons.append([InlineKeyboardButton(monitor['name'], callback_data=tag+';'+monitor['id'])])
             reply_markup = InlineKeyboardMarkup(buttons)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='Push one monitor:', reply_markup=reply_markup)
+            await context.bot.send_message(chat_id=chat_id, text='Push one monitor:', reply_markup=reply_markup)
         else:
             print('No monitors found \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='No monitors found \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='No monitors found \u26A0\ufe0f')
 
 @restricted
 async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
+    chat_id=update.effective_chat.id
     tag='submonitors'
+    await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
     choices=['snapshot', 'stream', 'videos', 'configure']
     buttons = []
     for choice in choices:
         buttons.append([InlineKeyboardButton(choice, callback_data=tag+';'+choice+';'+mid)])
     reply_markup = InlineKeyboardMarkup(buttons)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text='What do you want from this monitor?', reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
 
 @restricted
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
     desc='List all states'
     tag='states'
     url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitorStates/{settings['Shinobi']['group_key']}"
     response = requests.get(url)
     if response.status_code != 200:
         print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-        await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+        await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
         return
     else:
         print(f'OK, done \U0001F44D')
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+        await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
+        await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
         response = response.json()
         states = []
         for i in response['presets']:
             states.append(i['name'])
         if states:
+            await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
             buttons = []
             for state in states:
                 buttons.append([InlineKeyboardButton(state, callback_data=tag+';'+state)])
             reply_markup = InlineKeyboardMarkup(buttons)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='Push one state to activate:', reply_markup=reply_markup)
+            await context.bot.send_message(chat_id=chat_id, text='Push one state to activate:', reply_markup=reply_markup)
         else:
             print('No states found \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='No states found \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
 
 @restricted 
 async def callback_handler(update: Update, context: CallbackContext):
+    chat_id=update.effective_chat.id
     query = update.callback_query
     inputdata = query.data.split(';')
     tag = inputdata[0]
@@ -140,11 +151,11 @@ async def callback_handler(update: Update, context: CallbackContext):
         response = requests.get(url)
         if response.status_code != 200:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
             return
         else:
             print(f'OK, {selection} done \U0001F44D')
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+            await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
     elif tag=='monitors':
         # Below line is to remember how to delete a message after tapped on
         # await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
@@ -155,11 +166,11 @@ async def callback_handler(update: Update, context: CallbackContext):
             response = requests.get(url)
             if response.status_code != 200:
                 print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
                 return
             else:
                 print(f'OK, done \U0001F44D')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, server touched... \U0001F44D')
+                await context.bot.send_message(chat_id=chat_id, text=f'OK, server touched... \U0001F44D')
                 response = response.json()
                 data = json.loads(response[0]['details'])
                 snap = int()
@@ -168,7 +179,7 @@ async def callback_handler(update: Update, context: CallbackContext):
                     baseurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/jpeg/{settings['Shinobi']['group_key']}/{inputdata[2]}/s.jpg"
                     avoidcacheurl = str(int(time.time()))
                     url = baseurl+'?'+avoidcacheurl
-                    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=url)
+                    await context.bot.send_photo(chat_id=chat_id, photo=url)
                 else:
                     key = 'snap'
                     value = '1'
@@ -180,19 +191,20 @@ async def callback_handler(update: Update, context: CallbackContext):
             response = requests.get(url)
             if response.status_code != 200:
                 print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
                 return
             else:
                 print(f'OK, done \U0001F44D')
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+                await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
                 response = response.json()
+                print(response)
                 data = json.loads(response[0]['details'])
                 #snap = int(data.get('snap'))
                 #if snap:
                 #    await query.answer("Cooking your snapshot...\U0001F373")
                 url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/hls/{settings['Shinobi']['group_key']}/{inputdata[2]}/s.m3u8"
                 print(url)
-                await context.bot.send_video(chat_id=update.effective_chat.id, video=url, supports_streaming=True)
+                await context.bot.send_video(chat_id=chat_id, video=url, supports_streaming=True)
         elif selection=='videos':
             pass
         elif selection=='configure':
@@ -203,23 +215,23 @@ async def callback_handler(update: Update, context: CallbackContext):
         response = requests.get(queryurl)
         if response.status_code != 200:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
             return
         else:
             print(f'OK, server touched... \U0001F44D')
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+            await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
             data=disAssebleMonitor(response.json())
             print(f'posting data: \n {data}')
             response = requests.post(endpoint, data=data)
             if response.status_code != 200:
                 print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
                 print(response.text)
-                await context.bot.send_message(chat_id=update.effective_chat.id, text='Error something went wrong, request error \u26A0\ufe0f')
+                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
                 return
             else:
                 print(f'OK, done \U0001F44D')
                 print(response.text)
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=f'OK, done \U0001F44D')
+                await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
 
 
 def disAssebleMonitor(response):
@@ -255,10 +267,12 @@ def is_valid_json(my_json):
 
 @restricted
 async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
+    chat_id=update.effective_chat.id
     tag='configuremonitor'
+    await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
     button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
     reply_markup = InlineKeyboardMarkup(button)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
 
 if __name__ == '__main__':
     needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}
