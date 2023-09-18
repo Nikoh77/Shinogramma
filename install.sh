@@ -25,6 +25,8 @@ fi
 
 # Copy the Python script to the installation directory
 cp *.py "$install_dir"
+# Copy the 'images' directory and its contents
+cp -r images "$install_dir"
 
 # Check if the pip module is installed
 if ! command -v pip3 &> /dev/null; then
