@@ -4,41 +4,55 @@
 # or donate me a coffee
 
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, constants
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineQueryResultVideo, constants
 from functools import wraps
+from monitor import monitor
 import ini_check
 import logging
 import requests
 import inspect
 import re
 import json
-import time
 
 # Defining root variables
 config_file = "config.ini"
-settings = {}
 commands = []
+
 # Start logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.WARNING
 )
-
+# Start decorators section
 def restricted(func):
+    """Restrict chat only with id in config.ini."""
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
-        if not settings.get('Telegram').get('chat_id'):
+        if not telegramChatId:
             print('WARN: chat_id not defined, continuing...')
             return func(update, context, *args, **kwargs)
         chat_id = update.effective_user.id
-        if chat_id not in settings['Telegram']['chat_id']:
+        if chat_id not in telegramChatId:
             print("Unauthorized access denied for {}.".format(chat_id))
             return
         return func(update, context, *args, **kwargs)
     return wrapped
 
+def send_action(action):
+    """Sends `action` while processing func command."""
+    def decorator(func):
+        @wraps(func)
+        async def command_func(update, context, *args, **kwargs):
+            chat_id = update.effective_user.id
+            await context.bot.send_chat_action(chat_id=chat_id, action=action)
+            return await func(update, context,  *args, **kwargs)
+        return command_func
+    return decorator
+# End decorators section
+
 # Telegram/Bot commands definition:
-@restricted 
+@restricted
+@send_action(constants.ChatAction.TYPING)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Below line is to remember how to set a context but unusefull IMHO, tag system work mutch better...
     # context.user_data["originating_function"] = inspect.currentframe().f_code.co_name
@@ -53,12 +67,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Below line is to remember how to update/edit a sended message
     # await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
 
-@restricted    
+@restricted
+@send_action(constants.ChatAction.TYPING)    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='Where you are'
     tag = 'help'
-    await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
     help_text = "Available commands are:\n"
     keyboard=[]
     for command in commands:
@@ -67,27 +81,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard)
     await context.bot.send_message(chat_id=chat_id,text=help_text, reply_markup=reply_markup)
 
-
 @restricted
+@send_action(constants.ChatAction.TYPING)
 async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='List all monitors'
     tag='monitors'
-    url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-        await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-        return
-    else:
-        print(f'OK, done \U0001F44D')
-        await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
-        response = response.json()
+    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitor/{shinobiGroupKey}"
+    data= await queryUrl(chat_id, context, url)
+    if data:
         monitors = []
-        for i in response:
+        for i in data:
             monitors.append({'name':i['name'],'id':i['mid']})
         if monitors:
-            await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
             buttons = []
             for monitor in monitors:
                 buttons.append([InlineKeyboardButton(monitor['name'], callback_data=tag+';'+monitor['id'])])
@@ -98,10 +104,10 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text='No monitors found \u26A0\ufe0f')
 
 @restricted
+@send_action(constants.ChatAction.TYPING) 
 async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
     chat_id=update.effective_chat.id
     tag='submonitors'
-    await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
     choices=['snapshot', 'stream', 'videos', 'configure']
     buttons = []
     for choice in choices:
@@ -110,26 +116,18 @@ async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
 
 @restricted
+@send_action(constants.ChatAction.TYPING) 
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='List all states'
     tag='states'
-    url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitorStates/{settings['Shinobi']['group_key']}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-        await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-        return
-    else:
-        print(f'OK, done \U0001F44D')
-        await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
-        await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
-        response = response.json()
+    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}"
+    data= await queryUrl(chat_id, context, url)
+    if data:
         states = []
-        for i in response['presets']:
+        for i in data['presets']:
             states.append(i['name'])
         if states:
-            await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
             buttons = []
             for state in states:
                 buttons.append([InlineKeyboardButton(state, callback_data=tag+';'+state)])
@@ -139,7 +137,8 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print('No states found \u26A0\ufe0f')
             await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
 
-@restricted 
+@restricted
+@send_action(constants.ChatAction.TYPING) 
 async def callback_handler(update: Update, context: CallbackContext):
     chat_id=update.effective_chat.id
     query = update.callback_query
@@ -147,132 +146,48 @@ async def callback_handler(update: Update, context: CallbackContext):
     tag = inputdata[0]
     selection = inputdata[1]
     if tag=='states':
-        url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitorStates/{settings['Shinobi']['group_key']}/{selection}"
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-            return
-        else:
-            print(f'OK, {selection} done \U0001F44D')
-            await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
+        url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{selection}"
+        data= await queryUrl(chat_id, context, url)
+        if data:
+            await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
         # Below line is to remember how to delete a message after tapped on
         # await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         await monitors_subcommand(update, context, selection)
     elif tag=='submonitors':
+        mid=inputdata[2]
+        thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
         if selection=='snapshot':
-            url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{inputdata[2]}"
-            response = requests.get(url)
-            if response.status_code != 200:
-                print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-                return
-            else:
-                print(f'OK, done \U0001F44D')
-                await context.bot.send_message(chat_id=chat_id, text=f'OK, server touched... \U0001F44D')
-                response = response.json()
-                data = json.loads(response[0]['details'])
-                snap = int()
-                if data.get('snap')=='1':
-                    await query.answer("Cooking your snapshot...\U0001F373")
-                    baseurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/jpeg/{settings['Shinobi']['group_key']}/{inputdata[2]}/s.jpg"
-                    avoidcacheurl = str(int(time.time()))
-                    url = baseurl+'?'+avoidcacheurl
-                    await context.bot.send_photo(chat_id=chat_id, photo=url)
-                else:
-                    key = 'snap'
-                    value = '1'
-                    desc = 'Jpeg API for snapshots'
-                    await query.answer("Jpeg API not active")
-                    await configuremonitor_subcommand(update, context, inputdata[2], key, value, desc)
+            if not await thisMonitor.getsnapshot(context, chat_id, query):
+                key = 'snap'
+                value = '1'
+                desc = 'Jpeg API for snapshots'
+                await query.answer("Jpeg API not active on this monitor \u26A0\ufe0f")
+                #await configuremonitor_subcommand(update, context, key, value, desc)
         elif selection=='stream':
-            url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{inputdata[2]}"
-            response = requests.get(url)
-            if response.status_code != 200:
-                print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-                return
-            else:
-                print(f'OK, done \U0001F44D')
-                await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
-                response = response.json()
-                print(response)
-                data = json.loads(response[0]['details'])
-                #snap = int(data.get('snap'))
-                #if snap:
-                #    await query.answer("Cooking your snapshot...\U0001F373")
-                url = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/hls/{settings['Shinobi']['group_key']}/{inputdata[2]}/s.m3u8"
-                print(url)
-                await context.bot.send_video(chat_id=chat_id, video=url, supports_streaming=True)
+            await thisMonitor.getstream(context, chat_id, query)
         elif selection=='videos':
-            pass
+            await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
         elif selection=='configure':
-            pass
-    elif tag=='configuremonitor':
-        endpoint = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/configureMonitor/{settings['Shinobi']['group_key']}/{selection}"
-        queryurl = f"{settings['Shinobi']['url']}:{settings['Shinobi']['port']}/{settings['Shinobi']['api_key']}/monitor/{settings['Shinobi']['group_key']}/{selection}"
-        response = requests.get(queryurl)
-        if response.status_code != 200:
-            print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-            return
-        else:
-            print(f'OK, server touched... \U0001F44D')
-            await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
-            data=disAssebleMonitor(response.json())
-            print(f'posting data: \n {data}')
-            response = requests.post(endpoint, data=data)
-            if response.status_code != 200:
-                print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-                print(response.text)
-                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-                return
-            else:
-                print(f'OK, done \U0001F44D')
-                print(response.text)
-                await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
+            #await configuremonitor_subcommand(update, context, mid, key, value, desc)
+            await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix... \u26A0\ufe0f')
+    # elif tag=='configuremonitor':
+    #     mid=selection
+    #     key=inputdata[2]
+    #     value=inputdata[3]
+    #     des=inputdata[4]
+    #     thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
+    #     thisMonitor.configure()
 
-
-def disAssebleMonitor(response):
-    print('disassembling monitor...')
-    #response = response.json()
-    monitor=response[0]
-    monitor['details']=json.loads(monitor.get('details'))
-    monitor['details']['snap'] = "1"
-    #monitor['details']=str(monitor.get('details'))
-    # monitor.pop('details')
-    print('reassembling monitor...')
-    # Needed keys to make API query
-    keys=['mode', 'mid', 'name', 'tags', 'type', 'protocol', 'host', 'port', 'path', 'height', 'width', 'ext', 'fps', 'details']
-    query={}
-    for key in keys:
-        query[key]=monitor.get(key)
-    
-    
-    # for key in monitor:
-    #     if type(monitor.get(key))==str:
-    #         if is_valid_json(monitor.get(key)):
-    #             monitor[key]=json.loads(monitor.get(key))
-
-    return(json.dumps(query, indent=4))
-    #return(test)
-
-def is_valid_json(my_json):
-    try:
-        json.loads(my_json)
-        return True
-    except json.JSONDecodeError:
+async def queryUrl(chat_id, context, url):
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
+        await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
         return False
-
-@restricted
-async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
-    chat_id=update.effective_chat.id
-    tag='configuremonitor'
-    await context.bot.send_chat_action(chat_id=chat_id, action=constants.ChatAction.TYPING)
-    button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
-    reply_markup = InlineKeyboardMarkup(button)
-    await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
+    else:
+        print(f'OK, request done \U0001F44D')
+        return response.json()
 
 if __name__ == '__main__':
     needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}
@@ -294,8 +209,20 @@ if __name__ == '__main__':
             if command_functions.index(function)<len(command_functions)-1:
                 continue
         if result:
-            settings = ini_check.settings
-            application = ApplicationBuilder().token(settings['Telegram']['api_key']).build()
+            global telegramApiKey
+            global shinobiApiKey
+            global shinobiBaseUrl
+            global shinobiPort
+            global shinobiGroupKey
+            global telegramChatId
+            telegramApiKey=ini_check.settings.get('Telegram').get('api_key')
+            shinobiApiKey=ini_check.settings.get('Shinobi').get('api_key')
+            shinobiBaseUrl=ini_check.settings.get('Shinobi').get('url')
+            shinobiPort=ini_check.settings.get('Shinobi').get('port')
+            shinobiGroupKey=ini_check.settings.get('Shinobi').get('group_key')
+            telegramChatId=ini_check.settings.get('Telegram').get('chat_id')
+            
+            application = ApplicationBuilder().token(telegramApiKey).build()
             # CommandHandlers for commands are autogenerated parsing command functions
             callback_query_handler = CallbackQueryHandler(callback_handler)
             handlers=[callback_query_handler]
