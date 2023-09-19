@@ -167,8 +167,10 @@ async def callback_handler(update: Update, context: CallbackContext):
         elif inputdata[1]=='videos':
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
         elif inputdata[1]=='configure':
+            #test=await thisMonitor.likExportedMonitor('snap', '1')
+            #print(json.dumps(test, indent=3))
             #await configuremonitor_subcommand(update, context, mid, key, value, desc)
-            await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix... \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix without Shinobi\'s dev help... \u26A0\ufe0f')
     elif tag=='configuremonitor':
         mid=inputdata[1]
         key=inputdata[2]

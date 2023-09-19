@@ -31,6 +31,7 @@ class monitor:
             return None
         else:
             print(f'OK, done \U0001F44D')
+            #print(response.text) # for debug purposes only, to be deleted
             return response.json()
 
     async def getsnapshot(self, context, chat_id, query):
@@ -74,41 +75,40 @@ class monitor:
                 await context.bot.send_message(chat_id=chat_id, text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f")
             
     async def getvideo(self, context, chat_id, query):
-        pass
+        await context.bot.send_message(chat_id=chat_id, text="Not yet implemented... \u26A0\ufe0f")
                 
     async def configure(self, context, chat_id, query, key, value, desc):
         data=self.query()
         if data:
             data=json.loads(data[0]['details'])
             endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
-            #print(json.dumps(data, indent=4))
             if key in data.keys():
                 data[key]=value
-                test=self.query(endpoint, 'post', 'data')
-                print(test)
+                test=self.query(endpoint, 'post', data)
             else:
                 print('unknown parameter')
                 await context.bot.send_message(chat_id=chat_id, text="Unknown parameter... \u26A0\ufe0f")
             return False
 
-    async def disAssebleMonitor(self):
-        url = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.shinobiGroupKey}/{self.mid}"
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-            return
-        else:
-            print(f'OK, done \U0001F44D')
-            await context.bot.send_message(chat_id=chat_id, text=f'OK, done \U0001F44D')
-            print('disassembling monitor...')
-            response = response.json()
-            monitor=response[0]
-            monitor['details']=json.loads(monitor.get('details'))
-            print('reassembling monitor...')
-            # Needed keys to make API query
-            keys=['mode', 'mid', 'name', 'tags', 'type', 'protocol', 'host', 'port', 'path', 'height', 'width', 'ext', 'fps', 'details']
-            data={}
-            for key in keys:
-                data[key]=monitor.get(key)
-            return(data)
+    # async def likExportedMonitor(self, parameter, value):
+    #     data=self.query()
+    #     if data:
+    #         data=data[0]
+    #         data['details']=json.loads(data['details'])
+    #         print('reassembling monitor...')
+    #         # Needed keys (starting to exported one) to make API query
+    #         keys=['mode', 'mid', 'name', 'tags', 'type', 'protocol', 'host', 'port', 'path', 'height', 'width', 'ext', 'fps', 'details']
+    #         reassembleData={}
+    #         for key in keys:
+    #             reassembleData[key]=data.get(key)
+    #         endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
+    #         if parameter in reassembleData['details']:
+    #             print('ok parameter found')
+    #             reassembleData['details'][parameter]=value
+    #             reassembleData=json.dumps(reassembleData, indent=3)
+    #             print(reassembleData)
+    #             test=self.query(endpoint, 'post', reassembleData)
+    #         else:
+    #             print('unknown parameter')
+    #             await context.bot.send_message(chat_id=chat_id, text="Unknown parameter... \u26A0\ufe0f")
+    #         return False
