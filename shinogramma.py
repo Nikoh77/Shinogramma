@@ -1,5 +1,4 @@
-# This software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram,
-# right now it is possible to activate statuses but I'm working on it....
+# This software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram.
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github 
 # or donate me a coffee
 
@@ -144,40 +143,48 @@ async def callback_handler(update: Update, context: CallbackContext):
     query = update.callback_query
     inputdata = query.data.split(';')
     tag = inputdata[0]
-    selection = inputdata[1]
     if tag=='states':
-        url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{selection}"
+        url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{inputdata[1]}"
         data= await queryUrl(chat_id, context, url)
         if data:
             await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
         # Below line is to remember how to delete a message after tapped on
         # await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        await monitors_subcommand(update, context, selection)
+        await monitors_subcommand(update, context, inputdata[1])
     elif tag=='submonitors':
         mid=inputdata[2]
         thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
-        if selection=='snapshot':
+        if inputdata[1]=='snapshot':
             if not await thisMonitor.getsnapshot(context, chat_id, query):
                 key = 'snap'
                 value = '1'
                 desc = 'Jpeg API for snapshots'
                 await query.answer("Jpeg API not active on this monitor \u26A0\ufe0f")
-                #await configuremonitor_subcommand(update, context, key, value, desc)
-        elif selection=='stream':
+                await configuremonitor_subcommand(update, context, thisMonitor.mid, key, value, desc)
+        elif inputdata[1]=='stream':
             await thisMonitor.getstream(context, chat_id, query)
-        elif selection=='videos':
+        elif inputdata[1]=='videos':
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
-        elif selection=='configure':
+        elif inputdata[1]=='configure':
             #await configuremonitor_subcommand(update, context, mid, key, value, desc)
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix... \u26A0\ufe0f')
-    # elif tag=='configuremonitor':
-    #     mid=selection
-    #     key=inputdata[2]
-    #     value=inputdata[3]
-    #     des=inputdata[4]
-    #     thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
-    #     thisMonitor.configure()
+    elif tag=='configuremonitor':
+        mid=inputdata[1]
+        key=inputdata[2]
+        value=inputdata[3]
+        desc=inputdata[4]
+        thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
+        await thisMonitor.configure(context, chat_id, query, key, value, desc)
+
+@restricted
+@send_action(constants.ChatAction.TYPING)
+async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
+    chat_id=update.effective_chat.id
+    tag='configuremonitor'
+    button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
+    reply_markup = InlineKeyboardMarkup(button)
+    await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
 
 async def queryUrl(chat_id, context, url):
     response = requests.get(url)
