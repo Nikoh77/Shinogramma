@@ -31,7 +31,6 @@ class monitor:
             return None
         else:
             print(f'OK, done \U0001F44D')
-            #print(response.text) # for debug purposes only, to be deleted
             return response.json()
 
     async def getsnapshot(self, context, chat_id, query):
@@ -89,26 +88,3 @@ class monitor:
                 print('unknown parameter')
                 await context.bot.send_message(chat_id=chat_id, text="Unknown parameter... \u26A0\ufe0f")
             return False
-
-    # async def likExportedMonitor(self, parameter, value):
-    #     data=self.query()
-    #     if data:
-    #         data=data[0]
-    #         data['details']=json.loads(data['details'])
-    #         print('reassembling monitor...')
-    #         # Needed keys (starting to exported one) to make API query
-    #         keys=['mode', 'mid', 'name', 'tags', 'type', 'protocol', 'host', 'port', 'path', 'height', 'width', 'ext', 'fps', 'details']
-    #         reassembleData={}
-    #         for key in keys:
-    #             reassembleData[key]=data.get(key)
-    #         endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
-    #         if parameter in reassembleData['details']:
-    #             print('ok parameter found')
-    #             reassembleData['details'][parameter]=value
-    #             reassembleData=json.dumps(reassembleData, indent=3)
-    #             print(reassembleData)
-    #             test=self.query(endpoint, 'post', reassembleData)
-    #         else:
-    #             print('unknown parameter')
-    #             await context.bot.send_message(chat_id=chat_id, text="Unknown parameter... \u26A0\ufe0f")
-    #         return False
