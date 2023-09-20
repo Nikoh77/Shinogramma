@@ -2,7 +2,7 @@
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github 
 # or donate me a coffee
 
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineQueryResultVideo, constants
 from functools import wraps
 from monitor import monitor
@@ -20,8 +20,12 @@ commands = []
 # Start logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING
+    level=logging.INFO
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
+
 # Start decorators section
 def restricted(func):
     """Restrict chat only with id in config.ini."""
@@ -167,10 +171,11 @@ async def callback_handler(update: Update, context: CallbackContext):
         elif inputdata[1]=='videos':
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
         elif inputdata[1]=='configure':
+            await context.bot.send_message(chat_id=chat_id, text='which parameter do you want to change?')
             #test=await thisMonitor.likExportedMonitor('snap', '1')
             #print(json.dumps(test, indent=3))
             #await configuremonitor_subcommand(update, context, mid, key, value, desc)
-            await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix without Shinobi\'s dev help... \u26A0\ufe0f')
+            #await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix without Shinobi\'s dev help... \u26A0\ufe0f')
     elif tag=='configuremonitor':
         mid=inputdata[1]
         key=inputdata[2]

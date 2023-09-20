@@ -81,9 +81,9 @@ class monitor:
         data=self.query()
         if data:
             data=json.loads(data[0]['details'])
-            endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
             if key in data.keys():
                 data[key]=value
+                endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
                 test=self.query(endpoint, 'post', data)
             else:
                 print('unknown parameter')
