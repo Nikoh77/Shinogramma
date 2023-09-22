@@ -20,7 +20,8 @@ commands = []
 # Start logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -32,11 +33,10 @@ def restricted(func):
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         if not telegramChatId:
-            print('WARN: chat_id not defined, continuing...')
             return func(update, context, *args, **kwargs)
         chat_id = update.effective_user.id
         if chat_id not in telegramChatId:
-            print("Unauthorized access denied for {}.".format(chat_id))
+            print("Unauthorized, access denied for {}.".format(chat_id))
             return
         return func(update, context, *args, **kwargs)
     return wrapped
