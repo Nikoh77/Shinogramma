@@ -76,7 +76,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @send_action(constants.ChatAction.TYPING)    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
-    print(type(chat_id))
     logger.info(f'test logger with chat_id {chat_id}')
     desc='Where you are'
     tag = 'help'
@@ -178,7 +177,7 @@ async def callback_handler(update: Update, context: CallbackContext):
             await context.bot.send_message(chat_id=chat_id, text='which parameter do you want to change?')
             #test=await thisMonitor.likExportedMonitor('snap', '1')
             #print(json.dumps(test, indent=3))
-            #await configuremonitor_subcommand(update, context, mid, key, value, desc)
+            return confParam
             #await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix without Shinobi\'s dev help... \u26A0\ufe0f')
     elif tag=='configuremonitor':
         mid=inputdata[1]
@@ -190,12 +189,18 @@ async def callback_handler(update: Update, context: CallbackContext):
 
 @restricted
 @send_action(constants.ChatAction.TYPING)
-async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
+async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None):
+    print('ciao')
+    user=update.effective_message
     chat_id=update.effective_chat.id
+    user=update.message.text
     tag='configuremonitor'
-    button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
-    reply_markup = InlineKeyboardMarkup(button)
-    await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
+    #button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
+    #reply_markup = InlineKeyboardMarkup(button)
+    #await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
+    logger.info(f'Parameter is: {update.message.text}')
+    await update.message.reply_text("Ok, che valore vuoi assegnare?")
+    return confParam
 
 async def queryUrl(chat_id, context, url):
     response = requests.get(url)
@@ -241,10 +246,10 @@ if __name__ == '__main__':
             telegramChatId=ini_check.settings.get('Telegram').get('chat_id')
             
             application = ApplicationBuilder().token(telegramApiKey).build()
-            conv_handler = ConversationHandler(entry_points=[CommandHandler("start", start_command)],
+            conv_handler = ConversationHandler(entry_points=[],
                 states={
-                    confParam: [MessageHandler(filters.Regex("^(Boy|Girl|Other)$"), confParam), CommandHandler("help", help_command)],
-                    confParamVal: [MessageHandler(filters.PHOTO, confParamVal), CommandHandler("skip", help_command)],
+                    confParam: [MessageHandler(filters.TEXT & ~filters.COMMAND, configuremonitor_subcommand)]
+                    #confParamVal: [MessageHandler(filters.PHOTO, confParamVal), CommandHandler("skip", help_command)],
                 },
                 fallbacks=[CommandHandler("cancel", help_command)],
             )                               
