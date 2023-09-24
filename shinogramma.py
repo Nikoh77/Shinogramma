@@ -55,12 +55,10 @@ def send_action(action):
     return decorator
 # End decorators section
 
-# Telegram/Bot commands definition:
+# Start Telegram/Bot commands definition (ALL must be decorated with restricted):
 @restricted
 @send_action(constants.ChatAction.TYPING)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Below line is to remember how to set a context but unusefull IMHO, tag system work mutch better...
-    # context.user_data["originating_function"] = inspect.currentframe().f_code.co_name
     chat_id=update.effective_chat.id
     desc='Start this bot'
     tag = 'start'
@@ -69,8 +67,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="choose the command")
     await context.bot.send_message(chat_id=chat_id, text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
-    # Below line is to remember how to update/edit a sended message
-    # await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
 
 @restricted
 @send_action(constants.ChatAction.TYPING)    
@@ -111,18 +107,6 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @restricted
 @send_action(constants.ChatAction.TYPING) 
-async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
-    chat_id=update.effective_chat.id
-    tag='submonitors'
-    choices=['snapshot', 'stream', 'videos', 'configure']
-    buttons = []
-    for choice in choices:
-        buttons.append([InlineKeyboardButton(choice, callback_data=tag+';'+choice+';'+mid)])
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
-
-@restricted
-@send_action(constants.ChatAction.TYPING) 
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='List all states'
@@ -142,22 +126,31 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             print('No states found \u26A0\ufe0f')
             await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
+# End Telegram/Bot commands definition:
 
-@restricted
+@send_action(constants.ChatAction.TYPING) 
+async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
+    chat_id=update.effective_chat.id
+    tag='submonitors'
+    choices=['snapshot', 'stream', 'videos', 'configure']
+    buttons = []
+    for choice in choices:
+        buttons.append([InlineKeyboardButton(choice, callback_data=tag+';'+choice+';'+mid)])
+    reply_markup = InlineKeyboardMarkup(buttons)
+    await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
+
 @send_action(constants.ChatAction.TYPING) 
 async def callback_handler(update: Update, context: CallbackContext):
     chat_id=update.effective_chat.id
     query = update.callback_query
     inputdata = query.data.split(';')
-    tag = inputdata[0]
+    tag=inputdata[0]
     if tag=='states':
         url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{inputdata[1]}"
         data= await queryUrl(chat_id, context, url)
         if data:
             await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
-        # Below line is to remember how to delete a message after tapped on
-        # await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         await monitors_subcommand(update, context, inputdata[1])
     elif tag=='submonitors':
         mid=inputdata[2]
@@ -168,39 +161,32 @@ async def callback_handler(update: Update, context: CallbackContext):
                 value = '1'
                 desc = 'Jpeg API for snapshots'
                 await query.answer("Jpeg API not active on this monitor \u26A0\ufe0f")
-                #await configuremonitor_subcommand(update, context, thisMonitor.mid, key, value, desc)
         elif inputdata[1]=='stream':
-            await thisMonitor.getstream(context, chat_id, query)
+            await thisMonitor.getstream(context, chat_id)
         elif inputdata[1]=='videos':
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
         elif inputdata[1]=='configure':
-            await context.bot.send_message(chat_id=chat_id, text='which parameter do you want to change?')
-            #test=await thisMonitor.likExportedMonitor('snap', '1')
-            #print(json.dumps(test, indent=3))
-            return confParam
-            #await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix without Shinobi\'s dev help... \u26A0\ufe0f')
-    elif tag=='configuremonitor':
-        mid=inputdata[1]
-        key=inputdata[2]
-        value=inputdata[3]
-        desc=inputdata[4]
-        thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
-        await thisMonitor.configure(context, chat_id, query, key, value, desc)
+            context.user_data['from']=inputdata[1]
+            context.user_data['monitor']=thisMonitor
+            await update.effective_message.reply_text("Which parameter do you want to change?")
 
-@restricted
-@send_action(constants.ChatAction.TYPING)
-async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None):
-    print('ciao')
-    user=update.effective_message
-    chat_id=update.effective_chat.id
-    user=update.message.text
-    tag='configuremonitor'
-    #button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
-    #reply_markup = InlineKeyboardMarkup(button)
-    #await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
-    logger.info(f'Parameter is: {update.message.text}')
-    await update.message.reply_text("Ok, che valore vuoi assegnare?")
-    return confParam
+async def handle_text(update: Update, context: CallbackContext):
+    user_text = update.message.text
+    logger.info(f"User wrote: {user_text}")
+    if 'from' in context.user_data:
+        if context.user_data['from']=='configure':
+            context.user_data['from']='handle'
+            context.user_data['key']=user_text
+            await update.effective_message.reply_text("Which value do ypu want to assign?")
+        elif context.user_data['from']=='handle':
+            context.user_data.pop('from')
+            thisMonitor=context.user_data.get('monitor')
+            context.user_data.pop('monitor')
+            key=context.user_data.get('key')
+            context.user_data.pop('key')
+            value=user_text
+            chat_id=update.effective_chat.id
+            await thisMonitor.configure(context, chat_id, key, value)
 
 async def queryUrl(chat_id, context, url):
     response = requests.get(url)
@@ -246,22 +232,16 @@ if __name__ == '__main__':
             telegramChatId=ini_check.settings.get('Telegram').get('chat_id')
             
             application = ApplicationBuilder().token(telegramApiKey).build()
-            conv_handler = ConversationHandler(entry_points=[],
-                states={
-                    confParam: [MessageHandler(filters.TEXT & ~filters.COMMAND, configuremonitor_subcommand)]
-                    #confParamVal: [MessageHandler(filters.PHOTO, confParamVal), CommandHandler("skip", help_command)],
-                },
-                fallbacks=[CommandHandler("cancel", help_command)],
-            )                               
+            
             callback_query_handler = CallbackQueryHandler(callback_handler)
-            handlers=[callback_query_handler, conv_handler]
+            text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)
+            handlers=[callback_query_handler, text_handler]
             # Below commandHandlers for commands are autogenerated parsing command functions
             for command in commands:
                 handlers.append(CommandHandler(f'{command["command"]}', command["func"]))
             application.add_handlers(handlers)
             print('ShinogrammaBot Up and running')
-            application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-
+            application.run_polling(drop_pending_updates=True)
         else:
             print('INI file missed, please provide one.')
 
