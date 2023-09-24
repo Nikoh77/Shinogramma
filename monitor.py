@@ -69,7 +69,8 @@ class monitor:
                 thumbnail_file = open('images/shinthumbnail.jpeg', 'rb')
                 avoidcacheurl = str(int(time.time()))
                 try:
-                    await context.bot.send_document(chat_id=chat_id, document=vfile, filename=f'stream'+avoidcacheurl+'.m3u8', protect_content=True, thumbnail=thumbnail_file)
+                    await context.bot.send_message(chat_id=chat_id, text=url)
+                    await context.bot.send_document(chat_id=chat_id, document=vfile, filename=f'stream'+avoidcacheurl+'.m3u8', protect_content=False, thumbnail=thumbnail_file)
                 finally:
                     vfile.close()
             else:
