@@ -2,7 +2,8 @@
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github 
 # or donate me a coffee
 
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackContext, CallbackQueryHandler
+from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler,
+    CallbackContext, CallbackQueryHandler, ConversationHandler, filters)
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineQueryResultVideo, constants
 from functools import wraps
 from monitor import monitor
@@ -16,23 +17,28 @@ import json
 # Defining root variables
 config_file = "config.ini"
 commands = []
+confParam, confParamVal = range(2)
 
 # Start logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
+
 # Start decorators section
 def restricted(func):
     """Restrict chat only with id in config.ini."""
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         if not telegramChatId:
-            print('WARN: chat_id not defined, continuing...')
             return func(update, context, *args, **kwargs)
         chat_id = update.effective_user.id
         if chat_id not in telegramChatId:
-            print("Unauthorized access denied for {}.".format(chat_id))
+            print("Unauthorized, access denied for {}.".format(chat_id))
             return
         return func(update, context, *args, **kwargs)
     return wrapped
@@ -49,27 +55,24 @@ def send_action(action):
     return decorator
 # End decorators section
 
-# Telegram/Bot commands definition:
+# Start Telegram/Bot commands definition (ALL must be decorated with restricted):
 @restricted
 @send_action(constants.ChatAction.TYPING)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Below line is to remember how to set a context but unusefull IMHO, tag system work mutch better...
-    # context.user_data["originating_function"] = inspect.currentframe().f_code.co_name
     chat_id=update.effective_chat.id
     desc='Start this bot'
     tag = 'start'
     keyboard=[]
     for command in commands:
         keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
-    reply_markup = ReplyKeyboardMarkup(keyboard)
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="choose the command")
     await context.bot.send_message(chat_id=chat_id, text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A", reply_markup=reply_markup)
-    # Below line is to remember how to update/edit a sended message
-    # await update.message.reply_text("Seleziona un comando:", reply_markup=reply_markup)
 
 @restricted
 @send_action(constants.ChatAction.TYPING)    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
+    logger.info(f'test logger with chat_id {chat_id}')
     desc='Where you are'
     tag = 'help'
     help_text = "Available commands are:\n"
@@ -77,7 +80,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for command in commands:
         help_text += f'{command["desc"]}\n'
         keyboard.append([InlineKeyboardButton('/'+command['command'], callback_data=None)])
-    reply_markup = ReplyKeyboardMarkup(keyboard)
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="choose the command")
     await context.bot.send_message(chat_id=chat_id,text=help_text, reply_markup=reply_markup)
 
 @restricted
@@ -104,18 +107,6 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @restricted
 @send_action(constants.ChatAction.TYPING) 
-async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
-    chat_id=update.effective_chat.id
-    tag='submonitors'
-    choices=['snapshot', 'stream', 'videos', 'configure']
-    buttons = []
-    for choice in choices:
-        buttons.append([InlineKeyboardButton(choice, callback_data=tag+';'+choice+';'+mid)])
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
-
-@restricted
-@send_action(constants.ChatAction.TYPING) 
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='List all states'
@@ -135,22 +126,31 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             print('No states found \u26A0\ufe0f')
             await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
+# End Telegram/Bot commands definition:
 
-@restricted
+@send_action(constants.ChatAction.TYPING) 
+async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
+    chat_id=update.effective_chat.id
+    tag='submonitors'
+    choices=['snapshot', 'stream', 'videos', 'configure']
+    buttons = []
+    for choice in choices:
+        buttons.append([InlineKeyboardButton(choice, callback_data=tag+';'+choice+';'+mid)])
+    reply_markup = InlineKeyboardMarkup(buttons)
+    await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
+
 @send_action(constants.ChatAction.TYPING) 
 async def callback_handler(update: Update, context: CallbackContext):
     chat_id=update.effective_chat.id
     query = update.callback_query
     inputdata = query.data.split(';')
-    tag = inputdata[0]
+    tag=inputdata[0]
     if tag=='states':
         url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{inputdata[1]}"
         data= await queryUrl(chat_id, context, url)
         if data:
             await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
-        # Below line is to remember how to delete a message after tapped on
-        # await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         await monitors_subcommand(update, context, inputdata[1])
     elif tag=='submonitors':
         mid=inputdata[2]
@@ -161,24 +161,32 @@ async def callback_handler(update: Update, context: CallbackContext):
                 value = '1'
                 desc = 'Jpeg API for snapshots'
                 await query.answer("Jpeg API not active on this monitor \u26A0\ufe0f")
-                await configuremonitor_subcommand(update, context, thisMonitor.mid, key, value, desc)
         elif inputdata[1]=='stream':
-            await thisMonitor.getstream(context, chat_id, query)
+            await thisMonitor.getstream(context, chat_id)
         elif inputdata[1]=='videos':
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
         elif inputdata[1]=='configure':
-            await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix alone... \u26A0\ufe0f')
-    elif tag=='configuremonitor':
-        await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not possible to configure monitors, It\'s not something I can fix alone... \u26A0\ufe0f')
+            context.user_data['from']=inputdata[1]
+            context.user_data['monitor']=thisMonitor
+            await update.effective_message.reply_text("Which parameter do you want to change?")
 
-@restricted
-@send_action(constants.ChatAction.TYPING)
-async def configuremonitor_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid: None, key: None, value: None, desc: None):
-    chat_id=update.effective_chat.id
-    tag='configuremonitor'
-    button=[[InlineKeyboardButton('OK', callback_data=tag+';'+mid+';'+key+';'+value+';'+desc)]]
-    reply_markup = InlineKeyboardMarkup(button)
-    await context.bot.send_message(chat_id=chat_id, text=f'Do you want set {desc} to {value}?', reply_markup=reply_markup)
+async def handle_text(update: Update, context: CallbackContext):
+    user_text = update.message.text
+    logger.info(f"User wrote: {user_text}")
+    if 'from' in context.user_data:
+        if context.user_data['from']=='configure':
+            context.user_data['from']='handle'
+            context.user_data['key']=user_text
+            await update.effective_message.reply_text("Which value do ypu want to assign?")
+        elif context.user_data['from']=='handle':
+            context.user_data.pop('from')
+            thisMonitor=context.user_data.get('monitor')
+            context.user_data.pop('monitor')
+            key=context.user_data.get('key')
+            context.user_data.pop('key')
+            value=user_text
+            chat_id=update.effective_chat.id
+            await thisMonitor.configure(context, chat_id, key, value)
 
 async def queryUrl(chat_id, context, url):
     response = requests.get(url)
@@ -224,15 +232,16 @@ if __name__ == '__main__':
             telegramChatId=ini_check.settings.get('Telegram').get('chat_id')
             
             application = ApplicationBuilder().token(telegramApiKey).build()
-            # CommandHandlers for commands are autogenerated parsing command functions
+            
             callback_query_handler = CallbackQueryHandler(callback_handler)
-            handlers=[callback_query_handler]
+            text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)
+            handlers=[callback_query_handler, text_handler]
+            # Below commandHandlers for commands are autogenerated parsing command functions
             for command in commands:
                 handlers.append(CommandHandler(f'{command["command"]}', command["func"]))
             application.add_handlers(handlers)
             print('ShinogrammaBot Up and running')
-            application.run_polling()
-
+            application.run_polling(drop_pending_updates=True)
         else:
             print('INI file missed, please provide one.')
 

@@ -3,6 +3,7 @@ import json
 import time
 import m3u8
 import io
+import inspect
 
 class monitor:
     def __init__(self, shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid):
@@ -30,7 +31,9 @@ class monitor:
             print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
             return None
         else:
-            print(f'OK, done \U0001F44D')
+            print(f'OK, request done \U0001F44D')
+            if inspect.stack()[1][3]=='configure':
+                print(response.text) # for debug purposes only, to be deleted
             return response.json()
 
     async def getsnapshot(self, context, chat_id, query):
@@ -46,7 +49,7 @@ class monitor:
             else:
                 return False
 
-    async def getstream(self, context, chat_id, query):
+    async def getstream(self, context, chat_id):
         data=self.query()
         if data:
             streamTypes=['hls','mjpeg','flv','mp4']
@@ -73,17 +76,20 @@ class monitor:
                 print('If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg...')
                 await context.bot.send_message(chat_id=chat_id, text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f")
             
-    async def getvideo(self, context, chat_id, query):
+    async def getvideo(self, context, chat_id):
         await context.bot.send_message(chat_id=chat_id, text="Not yet implemented... \u26A0\ufe0f")
                 
-    async def configure(self, context, chat_id, query, key, value, desc):
+    async def configure(self, context, chat_id, key, value, desc=None):
         data=self.query()
         if data:
             data=json.loads(data[0]['details'])
-            endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
             if key in data.keys():
                 data[key]=value
+                endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
                 test=self.query(endpoint, 'post', data)
+                await context.bot.send_message(chat_id=chat_id, text=('request was sent succesfully to your server but '+ \
+                                                                    'the parameter will not be modified; I tried everything but I '+ \
+                                                                    "couldn\'t get it to work, it's not something I can solve on my own..... \u26A0\ufe0f"))
             else:
                 print('unknown parameter')
                 await context.bot.send_message(chat_id=chat_id, text="Unknown parameter... \u26A0\ufe0f")
