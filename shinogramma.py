@@ -189,14 +189,21 @@ async def handle_text(update: Update, context: CallbackContext):
             await thisMonitor.configure(context, chat_id, key, value)
 
 async def queryUrl(chat_id, context, url):
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
-        await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
-        return False
-    else:
-        print(f'OK, request done \U0001F44D')
-        return response.json()
+    try:
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f'Error {response.status_code} something went wrong, request error \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error \u26A0\ufe0f')
+            return False
+        else:
+            print(f'OK, request done \U0001F44D')
+            return response.json()
+    except requests.exceptions.RequestException as e:
+            #print('Error something went wrong, request-->connection error \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error-->connection \u26A0\ufe0f')
+            logger.critical(f'Error something went wrong, request-->connection error: \n{e}')
+            return False
+        
 
 if __name__ == '__main__':
     needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}

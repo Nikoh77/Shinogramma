@@ -14,8 +14,11 @@ class monitor:
         self.mid=mid
 
     def query(self, url=None, method='get', data=None):
+        methods=['get','post','put','delete']
         if url==None:
             url = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.shinobiGroupKey}/{self.mid}"
+        if method in methods:
+            
         if method.lower() == 'get':
             response = requests.get(url)
         elif method.lower() == 'post':
