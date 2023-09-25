@@ -7,9 +7,9 @@ from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, Mess
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineQueryResultVideo, constants
 from functools import wraps
 from monitor import monitor
+from httpQueryUrl import queryUrl
 import ini_check
 import logging
-import requests
 import inspect
 import re
 import json
@@ -154,22 +154,25 @@ async def callback_handler(update: Update, context: CallbackContext):
         await monitors_subcommand(update, context, inputdata[1])
     elif tag=='submonitors':
         mid=inputdata[2]
-        thisMonitor=monitor(shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
-        data=await queryUrl(chat_id, context, thisMonitor.url)
+        thisMonitor=monitor(context, chat_id, shinobiBaseUrl, shinobiPort, shinobiApiKey, shinobiGroupKey, mid)
+        #data=await queryUrl(chat_id, context, thisMonitor.url)
         if inputdata[1]=='snapshot':
-            if not await thisMonitor.getsnapshot(context, chat_id, data, query):
+            if not await thisMonitor.getsnapshot(context, chat_id, query):
                 key = 'snap'
                 value = '1'
                 desc = 'Jpeg API for snapshots'
-                await query.answer("Jpeg API not active on this monitor \u26A0\ufe0f")
+                # start config procedure to enable snap...
         elif inputdata[1]=='stream':
-            await thisMonitor.getstream(context, chat_id, data)
+            stream=await thisMonitor.getstream(context, chat_id)
+            if stream!=None:
+                buttons=[[InlineKeyboardButton('link', url=stream)]]
+                reply_markup = InlineKeyboardMarkup(buttons)
+                await update.effective_message.reply_text("With IOS use the link below, otherwise above file will be fine", reply_markup=reply_markup)
         elif inputdata[1]=='videos':
             await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
         elif inputdata[1]=='configure':
             context.user_data['from']=inputdata[1]
             context.user_data['monitor']=thisMonitor
-            context.user_data['data']=data
             await update.effective_message.reply_text("Which parameter do you want to change?")
 
 async def handleTextConfigure(update: Update, context: CallbackContext):
@@ -184,45 +187,11 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
             context.user_data.pop('from')
             thisMonitor=context.user_data['monitor']
             context.user_data.pop('monitor')
-            data=context.user_data['data']
-            context.user_data.pop('data')
             key=context.user_data['key']
             context.user_data.pop('key')
             value=user_text
             chat_id=update.effective_chat.id
-            confMonitor=await thisMonitor.configure(context, chat_id, data, key, value)
-            if confMonitor:
-                endpoint=confMonitor[0]
-                method=confMonitor[1]
-                data=confMonitor[2]
-                await queryUrl(chat_id, context, endpoint, method, data)
-
-async def queryUrl(chat_id, context, url=None, method='get', data=None):
-        methods=['get','post','put','delete']
-        if url==None:
-            url = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.shinobiGroupKey}/{self.mid}"
-        if method in methods:
-            http_method = getattr(requests, method)
-            try:
-                if method==('get' or 'delete'):
-                    response = http_method(url)
-                else:
-                    response = http_method(url, json=data)   
-                if response.status_code != 200:
-                    logger.info(f'Error {response.status_code} something went wrong, request error.')
-                    return False
-                else:
-                    logger.info('OK, request done.')
-                    if inspect.stack()[1][3]=='handleTextConfigure':
-                        print(response.text) # for debug purposes only, to be deleted
-                    return response.json()
-            except requests.exceptions.RequestException as e:
-                await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error-->connection \u26A0\ufe0f')
-                logger.critical(f'Error something went wrong, request-->connection error: \n{e}')
-                return False
-        else:            
-            print(f'Invalid method: {method}')
-            return False
+            await thisMonitor.configure(context, chat_id, key, value)
 
 if __name__ == '__main__':
     needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}
