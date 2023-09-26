@@ -19,14 +19,15 @@ async def queryUrl(context, chat_id, url, method='get', data=None, debug=False):
                 if method==('get' or 'delete'):
                     response = http_method(url)
                 else:
-                    response = http_method(url, json=data)   
+                    response = http_method(url, data=data)   
                 if response.status_code != 200:
                     logger.info(f'Error {response.status_code} something went wrong, request error.')
                     return False
                 else:
                     logger.info('OK, request done.')
                     if debug:
-                        print(response.text) # for debug purposes only, to be deleted
+                        logger.info(f'Request method: {method}\nType of data: {type(data)}\nData: {data}\nServer response:\n{response.text}')
+                        #print(response.text) # for debug purposes only, to be deleted
                     return response.json()
             except requests.exceptions.RequestException as e:
                 await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error-->connection \u26A0\ufe0f')
