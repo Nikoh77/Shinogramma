@@ -12,7 +12,6 @@ import ini_check
 import logging
 import inspect
 import re
-import json
 
 # Defining root variables
 config_file = "config.ini"

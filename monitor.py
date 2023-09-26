@@ -71,11 +71,11 @@ class monitor:
     async def configure(self, context, chat_id, key, value, desc=None):
         data=await queryUrl(context, chat_id, self.url)
         if data:
-            details=json.loads(data[0]['details'])
+            data=data[0]
+            details=json.loads(data['details'])
             if key in details.keys():
                 details[key]=value
-                data[0]['details']=details
-                data=json.dumps(data)
+                #data['details']=str(details)
                 endpoint = f"{self.shinobiBaseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/configureMonitor/{self.shinobiGroupKey}/{self.mid}"
                 method='post'
                 debug=True

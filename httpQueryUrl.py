@@ -1,5 +1,6 @@
 import requests
 import logging
+import json
 
 # Start logging
 logging.basicConfig(
@@ -19,7 +20,7 @@ async def queryUrl(context, chat_id, url, method='get', data=None, debug=False):
                 if method==('get' or 'delete'):
                     response = http_method(url)
                 else:
-                    response = http_method(url, data=data)   
+                    response = http_method(url, json=data)
                 if response.status_code != 200:
                     logger.info(f'Error {response.status_code} something went wrong, request error.')
                     return False
