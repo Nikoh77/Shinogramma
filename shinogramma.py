@@ -162,35 +162,27 @@ async def callback_handler(update: Update, context: CallbackContext):
     elif tag=='submonitors':
         mid=inputdata[2]
         thisMonitor=monitor(update, context, chat_id, mid)
-        #data=await queryUrl(chat_id, context, thisMonitor.url)
         if inputdata[1]=='snapshot':
             if not await thisMonitor.getsnapshot(query):
                 key = 'snap'
                 value = '1'
                 desc = 'Jpeg API for snapshots'
-                # start config procedure to enable snap...
+                # to do: start config procedure to enable snap...
         elif inputdata[1]=='stream':
             stream=await thisMonitor.getstream()
-
         elif inputdata[1]=='videos':
-            videos=await thisMonitor.getvideolist()
-            #await context.bot.send_message(chat_id=chat_id, text='Sorry, it\'s not yet possible to see videos but I am working on... \u26A0\ufe0f')
+            videos=await thisMonitor.getvideo()
         elif inputdata[1]=='configure':
             context.user_data['from']=inputdata[1]
             context.user_data['monitor']=thisMonitor
             await update.effective_message.reply_text("Which parameter do you want to change?")
-    if tag=='videolist':
-        url=f'{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/videos/{shinobiGroupKey}/{inputdata[2]}'
-        method='get'
-        data=None
-        debug=True
-        data=await queryUrl(context, chat_id, url, method, data, debug)
-        if data:
-            pass
-        # time=datetime.strptime(inputdata[3].split('.')[0], "%Y-%m-%dT%H-%M-%S")
-        # size=inputdata[1]
-        # duration=inputdata[2]
-        # await context.bot.send_video(chat_id=chat_id, video=url, supports_streaming=True, caption='iuwgdfie7tfeiug')
+    if tag=='video':
+        mid=inputdata[2]
+        thisMonitor=monitor(update, context, chat_id, mid)
+        if len(inputdata)==3:
+            videolist=await thisMonitor.getvideo(inputdata[1])
+        if len(inputdata)==4:
+            videoOp=await thisMonitor.getvideo(inputdata[1], inputdata[3])
 
 async def handleTextConfigure(update: Update, context: CallbackContext):
     user_text = update.message.text
@@ -263,30 +255,55 @@ class monitor:
                 logger.info('If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg...')
                 await self.context.bot.send_message(chat_id=self.chat_id, text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f")
             
-    async def getvideolist(self):
-        tag='videolist'
+    async def getvideo(self, index=None, operation=None):
+        tag='video'
         url=f'{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/videos/{shinobiGroupKey}/{self.mid}'
         method='get'
         data=None
-        debug=True
+        debug=False
         data=await queryUrl(self.context, self.chat_id, url, method, data, debug)
         if data:
-            data=data.json().get('videos')
-            for index,video in enumerate(data):
-            #     size=humanize.naturalsize(video.get('size'))
-                start_time=datetime.fromisoformat(video.get('time'))
-                end_time=datetime.fromisoformat(video.get('end'))
-                start=humanize.naturaltime(start_time)
-                if video['status']==1:
-                    unread=True
-            #     duration=humanize.naturaldelta(end_time-start_time)
-            #     fileName=video.get('filename')
-            #     videoUrl=url+'/'+fileName
-                CallBack=f'{tag};;{index};;{self.mid}'
-                buttons=[[InlineKeyboardButton(start, callback_data=CallBack)]]
+            if index==None:
+                data=data.json().get('videos')
+                buttons=[]
+                for index,video in enumerate(data):
+                    start_time=datetime.fromisoformat(video.get('time'))
+                    start=humanize.naturaltime(start_time)
+                    if video['status']==1:
+                        start=start.upper()
+                    CallBack=f'{tag};;{index};;{self.mid}'
+                    buttons.append([InlineKeyboardButton(start, callback_data=CallBack)])
                 reply_markup = InlineKeyboardMarkup(buttons)
-                await self.context.bot.send_message(chat_id=self.chat_id, text="<b>Select one video</b>", reply_markup=reply_markup, parse_mode='HTML')
-
+                await self.context.bot.send_message(chat_id=self.chat_id, text="Select one video (in uppercase are new).", reply_markup=reply_markup)
+            elif operation==None:
+                data=data.json().get('videos')[int(index)]
+                start_time=datetime.fromisoformat(data.get('time'))
+                end_time=datetime.fromisoformat(data.get('end'))
+                duration=humanize.naturaldelta(end_time-start_time)
+                time=start_time.strftime("%Y-%m-%d %H:%M:%S")
+                size=humanize.naturalsize(data.get('size'))
+                fileName=data.get('filename')
+                videoUrl=url+'/'+fileName
+                setRead=f'{videoUrl}/status/2'
+                buttons=[
+                    [InlineKeyboardButton('set unread', callback_data=f'{tag};;{index};;{self.mid};;unread'),
+                    InlineKeyboardButton('delete', callback_data=f'{tag};;{index};;{self.mid};;delete')]
+                ]
+                reply_markup = InlineKeyboardMarkup(buttons)
+                await queryUrl(self.context, self.chat_id, setRead, method, data, debug)
+                await self.context.bot.send_video(chat_id=self.chat_id, video=videoUrl, supports_streaming=True, caption=f'{time} - {duration} - {size}', reply_markup=reply_markup)
+            else:
+                data=data.json().get('videos')[int(index)]
+                fileName=data.get('filename')
+                videoUrl=url+'/'+fileName
+                setUnread=f'{videoUrl}/status/1'
+                delete=f'{videoUrl}/delete'
+                if operation=='unread':
+                    url=setUnread
+                elif operation=='delete':
+                    url=delete
+                await queryUrl(self.context, self.chat_id, url, method, data, debug)
+                
     async def configure(self, key, value, desc=None):
         data=await queryUrl(self.context, self.chat_id, self.url)
         if data:
