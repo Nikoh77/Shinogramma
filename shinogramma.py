@@ -304,7 +304,7 @@ class monitor:
                     if temp:
                         logger.info(f'Video {self.mid}->{fileName} set as read')
                         await self.query.answer("Video set as read.\U0001F373")
-                await self.context.bot.send_video(chat_id=self.chat_id, video=videoUrl, supports_streaming=True, caption=f'{index} - {time} - {duration} - {size}', reply_markup=reply_markup)
+                await self.context.bot.send_video(chat_id=self.chat_id, video=videoUrl, supports_streaming=True, caption=f'<b>{index+1}/{number} - {time} - {duration} - {size}</b>', reply_markup=reply_markup, parse_mode='HTML')
             else:
                 index=int(index)
                 video=videoList.json().get('videos')[index]
