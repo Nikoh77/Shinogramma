@@ -35,7 +35,7 @@ if ! command -v pip3 &> /dev/null; then
 fi
 
 # Specify the required Python modules
-required_modules=("requests" "python-telegram-bot" "m3u8")
+required_modules=("requests" "python-telegram-bot" "m3u8" "humanize")
 
 # Install the required Python modules
 echo "Installing the required Python modules..."

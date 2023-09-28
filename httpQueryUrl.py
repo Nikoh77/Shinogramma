@@ -1,6 +1,6 @@
 import requests
 import logging
-import json
+import json #for debug only, can be removed when all work fine...
 
 # Start logging
 logging.basicConfig(
@@ -8,7 +8,6 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-#logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +26,8 @@ async def queryUrl(context, chat_id, url, method='get', data=None, debug=False):
                 else:
                     logger.info('OK, request done.')
                     if debug:
-                        logger.info(f'Request method: {method}\nType of data: {type(data)}\nData: {data}\nServer response:\n{response.text}')
-                        #print(response.text) # for debug purposes only, to be deleted
-                    return response.json()
+                        logger.info(f'\nRequest method: {method}\nType of data: {type(data)}\nData: {json.dumps(data, indent=4)}\nServer response:\n{response.text}')
+                    return response
             except requests.exceptions.RequestException as e:
                 await context.bot.send_message(chat_id=chat_id, text='Error something went wrong, request error-->connection \u26A0\ufe0f')
                 logger.critical(f'Error something went wrong, request-->connection error: \n{e}')

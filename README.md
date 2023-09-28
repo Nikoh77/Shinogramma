@@ -11,7 +11,7 @@ Let's say that with him, you'll be able to take real-time snapshots, view record
 Shinogramma is not intended to replace the web interface; the real goal is to have an immediate tool for control and quick configurations, such as turning on intruder detection when leaving home and turning it off when returning.
 ## Installation:
 Just install python-telegram-bot with ```pip install python-telegram-bot```\
-In the same way install requests and m3u8 modules\
+In the same way install requests, humanize and m3u8 modules\
 clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
 and start it with ```cd Shinogramma && python3 shinogramma.py```\
 ### or execute install.sh (after giving him exec rights)
