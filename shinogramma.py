@@ -272,23 +272,20 @@ class monitor:
         data=await queryUrl(self.context, self.chat_id, url, method, data, debug)
         if data:
             data=data.json().get('videos')
-            buttons=[]
             for index,video in enumerate(data):
             #     size=humanize.naturalsize(video.get('size'))
                 start_time=datetime.fromisoformat(video.get('time'))
                 end_time=datetime.fromisoformat(video.get('end'))
                 start=humanize.naturaltime(start_time)
                 if video['status']==1:
-                    #unread=True
-                    start=f'<b>{start}</b>'
-                    print(start)
+                    unread=True
             #     duration=humanize.naturaldelta(end_time-start_time)
             #     fileName=video.get('filename')
             #     videoUrl=url+'/'+fileName
                 CallBack=f'{tag};;{index};;{self.mid}'
-                buttons.append([InlineKeyboardButton(start, callback_data=CallBack)])
-            reply_markup = InlineKeyboardMarkup(buttons)
-            await self.context.bot.send_message(chat_id=self.chat_id, text="Select one video", reply_markup=reply_markup, parse_mode='HTML')
+                buttons=[[InlineKeyboardButton(start, callback_data=CallBack)]]
+                reply_markup = InlineKeyboardMarkup(buttons)
+                await self.context.bot.send_message(chat_id=self.chat_id, text="<b>Select one video</b>", reply_markup=reply_markup, parse_mode='HTML')
 
     async def configure(self, key, value, desc=None):
         data=await queryUrl(self.context, self.chat_id, self.url)
