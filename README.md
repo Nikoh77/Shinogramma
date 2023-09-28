@@ -1,12 +1,12 @@
 # Shinogramma
 ![Shinogramma](https://github.com/Nikoh77/ShinotifyTB/assets/7826178/24a15ed6-09ab-4267-91a2-484198f4abaf)
-### The development of Shinogramma is at a standstill, unfortunately I am not able to move forward, I implemented the code to configure monitors through conversation/chat, now I only need Shinobi's dev help to have it working; I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to proceed with development....
+### I implemented the code to configure monitors through conversation/chat, now I only need Shinobi's dev help to have it working; I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to complete this bot with editing/configuration monitors feature.\
 
-This software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots and see monitor's streaming but I'm still working on it....\
+That said..., this software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitor's streaming and saved recorded videos.\
 Shinogramma can run on any computer with Python 3 and an internet connection.\
 It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router.
 ## Commands:
-Shinogramma is in development status so commands and things he can do can increase, a good place to start is the /help command\
+Shinogramma is in development status so commands and things he can do can increase, also with your help; a good place to start is the /help command\
 Let's say that with him, you'll be able to take real-time snapshots, view recorded or live videos, modify monitors, and activate states.\
 Shinogramma is not intended to replace the web interface; the real goal is to have an immediate tool for control and quick configurations, such as turning on intruder detection when leaving home and turning it off when returning.
 ## Installation:
