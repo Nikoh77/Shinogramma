@@ -89,29 +89,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=chat_id,text=help_text, reply_markup=reply_markup)
 
 @restricted
-@send_action(constants.ChatAction.TYPING)
-async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id
-    desc='List all monitors'
-    tag='monitors'
-    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitor/{shinobiGroupKey}"
-    data= await queryUrl(chat_id, context, url)
-    if data:
-        data=data.json()
-        monitors = []
-        for i in data:
-            monitors.append({'name':i['name'],'id':i['mid']})
-        if monitors:
-            buttons = []
-            for monitor in monitors:
-                buttons.append([InlineKeyboardButton(monitor['name'], callback_data=tag+';;'+monitor['id'])])
-            reply_markup = InlineKeyboardMarkup(buttons)
-            await context.bot.send_message(chat_id=chat_id, text='Select one monitor:', reply_markup=reply_markup)
-        else:
-            print('No monitors found \u26A0\ufe0f')
-            await context.bot.send_message(chat_id=chat_id, text='No monitors found \u26A0\ufe0f')
-
-@restricted
 @send_action(constants.ChatAction.TYPING) 
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
@@ -133,18 +110,49 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             print('No states found \u26A0\ufe0f')
             await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
+
+@restricted
+@send_action(constants.ChatAction.TYPING)
+async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
+    desc='List all monitors'
+    tag='monitors'
+    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitor/{shinobiGroupKey}"
+    data= await queryUrl(chat_id, context, url)
+    if data:
+        data=data.json()
+        monitors = []
+        for i in data:
+            monitors.append({'name':i['name'],'id':i['mid']})
+        if monitors:
+            buttons = []
+            for monitor in monitors:
+                buttons.append([InlineKeyboardButton(monitor['name'], callback_data=tag+';;'+monitor['id']+';;'+monitor['name'])])
+            reply_markup = InlineKeyboardMarkup(buttons)
+            await context.bot.send_message(chat_id=chat_id, text='Select one monitor:', reply_markup=reply_markup)
+        else:
+            print('No monitors found \u26A0\ufe0f')
+            await context.bot.send_message(chat_id=chat_id, text='No monitors found \u26A0\ufe0f')
+
+@restricted
+@send_action(constants.ChatAction.TYPING)    
+async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
+    desc='Edit shinogramma settings'
+    tag='settings'
+
 # End Telegram/Bot commands definition:
 
 @send_action(constants.ChatAction.TYPING) 
-async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid):
+async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE, mid, name):
     chat_id=update.effective_chat.id
     tag='submonitors'
-    choices=['snapshot', 'stream', 'videos', 'configure']
+    choices=['snapshot', 'stream', 'videos', 'map', 'configure']
     buttons = []
     for choice in choices:
         buttons.append([InlineKeyboardButton(choice, callback_data=tag+';;'+choice+';;'+mid)])
     reply_markup = InlineKeyboardMarkup(buttons)
-    await context.bot.send_message(chat_id=chat_id, text='What do you want from this monitor?', reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=chat_id, text=f'<b>{name}</b>\nWhat do you want from this monitor?', reply_markup=reply_markup, parse_mode='HTML')
 
 @send_action(constants.ChatAction.TYPING) 
 async def callback_handler(update: Update, context: CallbackContext):
@@ -158,7 +166,7 @@ async def callback_handler(update: Update, context: CallbackContext):
         if data:
             await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
-        await monitors_subcommand(update, context, inputdata[1])
+        await monitors_subcommand(update, context, inputdata[1], inputdata[2])
     elif tag=='submonitors':
         mid=inputdata[2]
         thisMonitor=monitor(update, context, chat_id, mid, query)
@@ -352,7 +360,7 @@ if __name__ == '__main__':
         pattern = r'desc\s*=\s*["\'](.*?)["\']'
         desc=re.search(pattern, code)
         if not desc:
-            print(f'WARN: {function.__name__} function has no description...')
+            logger.critical(f'WARN: {function.__name__} function has no description...')
             break
         else:
             data={'func':function, 'name':name, 'command':command, 'desc':'/'+command+' - '+desc.group(1)}
