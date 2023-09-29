@@ -2,9 +2,9 @@
 ![Shinogramma](https://github.com/Nikoh77/ShinotifyTB/assets/7826178/24a15ed6-09ab-4267-91a2-484198f4abaf)
 ### I implemented the code to configure monitors through conversation/chat, now I only need Shinobi's dev help to have it working; I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to complete this bot with editing/configuration monitors feature.\
 
-That said..., this software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitor's streaming and saved recorded videos.\
+That said..., this software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitors streaming and saved recorded videos, and manage them.
 Shinogramma can run on any computer with Python 3 and an internet connection.\
-It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router.
+It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router <b>so with Shinogramma you can keep secure your local environment closing all incoming ports!</b>
 ## Commands:
 Shinogramma is in development status so commands and things he can do can increase, also with your help; a good place to start is the /help command\
 Let's say that with him, you'll be able to take real-time snapshots, view recorded or live videos, modify monitors, and activate states.\
