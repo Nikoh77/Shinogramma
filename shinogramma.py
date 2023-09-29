@@ -112,6 +112,13 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
 
 @restricted
+@send_action(constants.ChatAction.TYPING)    
+async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
+    desc='Edit shinogramma settings'
+    tag='settings'
+
+@restricted
 @send_action(constants.ChatAction.TYPING)
 async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
@@ -133,14 +140,6 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             print('No monitors found \u26A0\ufe0f')
             await context.bot.send_message(chat_id=chat_id, text='No monitors found \u26A0\ufe0f')
-
-@restricted
-@send_action(constants.ChatAction.TYPING)    
-async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id
-    desc='Edit shinogramma settings'
-    tag='settings'
-
 # End Telegram/Bot commands definition:
 
 @send_action(constants.ChatAction.TYPING) 
@@ -184,6 +183,8 @@ async def callback_handler(update: Update, context: CallbackContext):
             context.user_data['from']=inputdata[1]
             context.user_data['monitor']=thisMonitor
             await update.effective_message.reply_text("Which parameter do you want to change?")
+        elif inputdata[1]=='map':
+            geolocation=await thisMonitor.getmap()
     if tag=='video':
         mid=inputdata[2]
         thisMonitor=monitor(update, context, chat_id, mid, query)
@@ -330,7 +331,15 @@ class monitor:
                 if temp:
                     logger.info(f'Video {self.mid}->{fileName} {caption}')
                     await self.query.answer(f'Video {caption}.\U0001F373')
-                
+    async def getmap(self):
+        data=await queryUrl(self.context, self.chat_id, self.url)
+        if data:
+            pass
+        
+        
+        
+        
+        
     async def configure(self, key, value, desc=None):
         data=await queryUrl(self.context, self.chat_id, self.url)
         if data:
@@ -338,7 +347,7 @@ class monitor:
             details=json.loads(data['details'])
             if key in details.keys():
                 details[key]=value
-                #data['details']=str(details)
+                data['details']=details
                 endpoint = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/configureMonitor/{shinobiGroupKey}/{self.mid}"
                 method='post'
                 debug=True
