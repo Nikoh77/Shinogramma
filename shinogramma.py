@@ -112,13 +112,6 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text='No states found \u26A0\ufe0f')
 
 @restricted
-@send_action(constants.ChatAction.TYPING)    
-async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id
-    desc='Edit shinogramma settings'
-    tag='settings'
-
-@restricted
 @send_action(constants.ChatAction.TYPING)
 async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
@@ -140,6 +133,13 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             print('No monitors found \u26A0\ufe0f')
             await context.bot.send_message(chat_id=chat_id, text='No monitors found \u26A0\ufe0f')
+
+@restricted
+@send_action(constants.ChatAction.TYPING)    
+async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
+    desc='Edit shinogramma settings'
+    tag='settings'
 # End Telegram/Bot commands definition:
 
 @send_action(constants.ChatAction.TYPING) 
@@ -156,21 +156,21 @@ async def monitors_subcommand(update: Update, context: ContextTypes.DEFAULT_TYPE
 @send_action(constants.ChatAction.TYPING) 
 async def callback_handler(update: Update, context: CallbackContext):
     chat_id=update.effective_chat.id
-    query = update.callback_query
-    inputdata = query.data.split(';;')
+    query=update.callback_query
+    inputdata=query.data.split(';;')
     tag=inputdata[0]
     if tag=='states':
-        url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{inputdata[1]}"
-        data= await queryUrl(chat_id, context, url)
+        url=f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{inputdata[1]}"
+        data=await queryUrl(chat_id, context, url)
         if data:
             await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
         await monitors_subcommand(update, context, inputdata[1], inputdata[2])
     elif tag=='submonitors':
         mid=inputdata[2]
-        thisMonitor=monitor(update, context, chat_id, mid, query)
+        thisMonitor=monitor(update, context, chat_id, mid)
         if inputdata[1]=='snapshot':
-            if not await thisMonitor.getsnapshot(query):
+            if not await thisMonitor.getsnapshot():
                 key = 'snap'
                 value = '1'
                 desc = 'Jpeg API for snapshots'
@@ -187,7 +187,7 @@ async def callback_handler(update: Update, context: CallbackContext):
             geolocation=await thisMonitor.getmap()
     if tag=='video':
         mid=inputdata[2]
-        thisMonitor=monitor(update, context, chat_id, mid, query)
+        thisMonitor=monitor(update, context, chat_id, mid)
         if len(inputdata)==3:
             videolist=await thisMonitor.getvideo(inputdata[1])
         if len(inputdata)==4:
@@ -212,27 +212,27 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
             await thisMonitor.configure(key, value)
 
 class monitor:
-    def __init__(self, update, context, chat_id, mid, query=None):
+    def __init__(self, update, context, chat_id, mid):
         self.update=update
         self.context=context
-        self.query=query
         self.chat_id=chat_id
         self.mid=mid
         self.url=f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitor/{shinobiGroupKey}/{mid}"
+        self.query=update.callback_query
 
-    async def getsnapshot(self, query):
+    async def getsnapshot(self):
         data=await queryUrl(self.context, self.chat_id, self.url)
         if data:
             data=data.json()
             if json.loads(data[0]['details'])['snap']=='1':
-                await query.answer("Cooking your snapshot...\U0001F373")
+                await self.query.answer("Cooking your snapshot...\U0001F373")
                 baseurl = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/jpeg/{shinobiGroupKey}/{self.mid}/s.jpg"
                 avoidcacheurl = str(int(time.time()))
                 url = baseurl+'?'+avoidcacheurl
                 await self.context.bot.send_photo(chat_id=self.chat_id, photo=url)
                 return True
             else:
-                await query.answer("Jpeg API not active on this monitor \u26A0\ufe0f")
+                await self.query.answer(text="Jpeg API not active on this monitor \u26A0\ufe0f", show_alert=True)
                 logger.info('Jpeg API not active on this monitor')
                 return False
 
@@ -334,11 +334,13 @@ class monitor:
     async def getmap(self):
         data=await queryUrl(self.context, self.chat_id, self.url)
         if data:
-            pass
-        
-        
-        
-        
+            data=json.loads(data.json()[0]['details']).get('geolocation').split(',')
+            latitude=data[0]
+            longitude=data[1]
+            if latitude=='49.2578298' and longitude=='-123.2634732':
+                await self.query.answer(text="No map data for this monitor...\u26A0\ufe0f", show_alert=True)
+
+            print(type(data), data)
         
     async def configure(self, key, value, desc=None):
         data=await queryUrl(self.context, self.chat_id, self.url)
