@@ -270,7 +270,7 @@ class monitor:
         url=f'{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/videos/{shinobiGroupKey}/{self.mid}'
         method='get'
         data=None
-        debug=False
+        debug=True
         videoList=await queryUrl(self.context, self.chat_id, url, method, data, debug)
         if videoList:
             if index==None:
@@ -281,8 +281,10 @@ class monitor:
                     start=humanize.naturaltime(start_time)
                     if video['status']==1:
                         start=start.upper()
+                    if video['objects']:
+                        pass
                     CallBack=f'{tag};;{index};;{self.mid}'
-                    buttons.append([InlineKeyboardButton(start, callback_data=CallBack)])
+                    buttons.append([InlineKeyboardButton(text=f'{start} -> ', callback_data=CallBack)])
                 reply_markup = InlineKeyboardMarkup(buttons)
                 await self.context.bot.send_message(chat_id=self.chat_id, text="Select one video <b>(in uppercase are new)</b>.", reply_markup=reply_markup, parse_mode='HTML')
             elif operation==None and index!=None:
