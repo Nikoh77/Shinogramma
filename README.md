@@ -2,7 +2,7 @@
 ![Shinogramma](https://github.com/Nikoh77/ShinotifyTB/assets/7826178/24a15ed6-09ab-4267-91a2-484198f4abaf)
 ### I implemented the code to configure monitors through conversation/chat, now I only need Shinobi's dev help to have it working; I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to complete this bot with editing/configuration monitors feature.\
 
-That said..., this software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitors streaming and saved recorded videos, and manage them.
+That said..., this software (aka bot) is intended as a client to conveniently control Shinobi DVS (Digital Video Server, more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitors streaming and saved recorded videos, and manage them.
 Shinogramma can run on any computer with Python 3 and an internet connection.\
 It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router <b>so with Shinogramma you can keep secure your local environment closing all incoming ports!</b>
 ## Commands:
@@ -28,7 +28,7 @@ chat_id = 6588899, 77778888, 888888887
 
 I highly recommend a server installation, meaning the bot runs as a service rather than a user application. If you're a Linux user, I suggest installing it without a desktop environment and configuring it as a service managed by systemd, but this goes beyond the scope of this writing.
 
-# Contacts:
+## Contacts:
 For any questions, you can find me on the official Shinobi Discord server (if I don't answer, please ping me), or if you are Italian you could join this telegram group: https://t.me/shinobi_italia
 
 Lastly, please report any malfunctions or bugs.\Feel free to expand my code with new features or simply clean it up and/or make it more efficient. If you do so, create a pull request, and I'll be happy to accept it.
