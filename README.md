@@ -28,6 +28,7 @@ chat_id = 6588899, 77778888, 888888887
 
 I highly recommend a server installation, meaning the bot runs as a service rather than a user application. If you're a Linux user, I suggest installing it without a desktop environment and configuring it as a service managed by systemd, but this goes beyond the scope of this writing.
 
+# Contacts:
+For any questions, you can find me on the official Shinobi Discord server (if I don't answer, please ping me), or if you are Italian you could join this telegram group: https://t.me/shinobi_italia
 
-For any questions, you can find me on the official Shinobi Discord server (if I don't respond, please ping me).
 Lastly, please report any malfunctions or bugs.\Feel free to expand my code with new features or simply clean it up and/or make it more efficient. If you do so, create a pull request, and I'll be happy to accept it.
