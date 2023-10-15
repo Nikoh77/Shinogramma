@@ -276,15 +276,15 @@ class monitor:
             if index==None:
                 videoList=videoList.json().get('videos')
                 buttons=[]
-                for index,video in enumerate(videoList):
+                for index,video in enumerate(reversed(videoList)):
                     start_time=datetime.fromisoformat(video.get('time'))
                     start=humanize.naturaltime(start_time)
                     if video['status']==1:
                         start=start.upper()
                     if video['objects']:
-                        pass
+                        objects=video['objects']
                     CallBack=f'{tag};;{index};;{self.mid}'
-                    buttons.append([InlineKeyboardButton(text=f'{start} -> ', callback_data=CallBack)])
+                    buttons.append([InlineKeyboardButton(text=f'{start} -> {objects}', callback_data=CallBack)])
                 reply_markup = InlineKeyboardMarkup(buttons)
                 await self.context.bot.send_message(chat_id=self.chat_id, text="Select one video <b>(in uppercase are new)</b>.", reply_markup=reply_markup, parse_mode='HTML')
             elif operation==None and index!=None:
