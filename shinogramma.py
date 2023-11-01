@@ -4,7 +4,7 @@
 
 from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler,
     CallbackContext, CallbackQueryHandler, ConversationHandler, filters)
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineQueryResultVideo, constants
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineQueryResultVideo, constants, error
 from functools import wraps
 #from monitor import monitor
 from httpQueryUrl import queryUrl
@@ -31,7 +31,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
+logging.getLogger("__main__").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Start decorators section
@@ -39,10 +39,10 @@ def restricted(func):
     """Restrict chat only with id in config.ini."""
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
-        if not telegramChatId:
+        if not telegram_chat_id:
             return func(update, context, *args, **kwargs)
         chat_id = update.effective_user.id
-        if chat_id not in telegramChatId:
+        if chat_id not in telegram_chat_id:
             print("Unauthorized, access denied for {}.".format(chat_id))
             return
         return func(update, context, *args, **kwargs)
@@ -94,7 +94,7 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='List all states'
     tag='states'
-    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}"
+    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitorStates/{shinobi_group_key}"
     data=await queryUrl(chat_id, context, url)
     if data:
         data=data.json()
@@ -117,7 +117,7 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     desc='List all monitors'
     tag='monitors'
-    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitor/{shinobiGroupKey}"
+    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitor/{shinobi_group_key}"
     data= await queryUrl(chat_id, context, url)
     if data:
         data=data.json()
@@ -160,7 +160,7 @@ async def callback_handler(update: Update, context: CallbackContext):
     inputdata=query.data.split(';;')
     tag=inputdata[0]
     if tag=='states':
-        url=f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitorStates/{shinobiGroupKey}/{inputdata[1]}"
+        url=f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitorStates/{shinobi_group_key}/{inputdata[1]}"
         data=await queryUrl(chat_id, context, url)
         if data:
             await query.answer('OK, done \U0001F44D')
@@ -185,7 +185,7 @@ async def callback_handler(update: Update, context: CallbackContext):
             await update.effective_message.reply_text("Which parameter do you want to change?")
         elif inputdata[1]=='map':
             geolocation=await thisMonitor.getmap()
-    if tag=='video':
+    elif tag=='video':
         mid=inputdata[2]
         thisMonitor=monitor(update, context, chat_id, mid)
         if len(inputdata)==3:
@@ -217,7 +217,7 @@ class monitor:
         self.context=context
         self.chat_id=chat_id
         self.mid=mid
-        self.url=f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/monitor/{shinobiGroupKey}/{mid}"
+        self.url=f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitor/{shinobi_group_key}/{mid}"
         self.query=update.callback_query
 
     async def getsnapshot(self):
@@ -226,7 +226,7 @@ class monitor:
             data=data.json()
             if json.loads(data[0]['details'])['snap']=='1':
                 await self.query.answer("Cooking your snapshot...\U0001F373")
-                baseurl = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/jpeg/{shinobiGroupKey}/{self.mid}/s.jpg"
+                baseurl = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/jpeg/{shinobi_group_key}/{self.mid}/s.jpg"
                 avoidcacheurl = str(int(time.time()))
                 url = baseurl+'?'+avoidcacheurl
                 await self.context.bot.send_photo(chat_id=self.chat_id, photo=url)
@@ -244,13 +244,13 @@ class monitor:
             streamType=json.loads(data[0]['details'])['stream_type']
             if streamType in streamTypes:
                 if streamType=='hls':
-                    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/hls/{shinobiGroupKey}/{self.mid}/s.m3u8"
+                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/hls/{shinobi_group_key}/{self.mid}/s.m3u8"
                 elif streamType=='mjpeg':
-                    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/mjpeg/{shinobiGroupKey}/{self.mid}"
+                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/mjpeg/{shinobi_group_key}/{self.mid}"
                 elif streamType=='flv':
-                    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/flv/{shinobiGroupKey}/{self.mid}/s.flv"
+                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/flv/{shinobi_group_key}/{self.mid}/s.flv"
                 elif streamType=='mp4':
-                    url = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/mp4/{shinobiGroupKey}/{self.mid}/s.mp4"
+                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/mp4/{shinobi_group_key}/{self.mid}/s.mp4"
                 playlist=m3u8.M3U8()
                 playlist.add_playlist(url)
                 vfile=io.StringIO(playlist.dumps())
@@ -265,9 +265,9 @@ class monitor:
                 logger.info('If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg...')
                 await self.context.bot.send_message(chat_id=self.chat_id, text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f")
             
-    async def getvideo(self, index=None, operation=None):
+    async def getvideo(self, index=None, operation=None, more=False):
         tag='video'
-        url=f'{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/videos/{shinobiGroupKey}/{self.mid}'
+        url=f'{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/videos/{shinobi_group_key}/{self.mid}'
         method='get'
         data=None
         debug=True
@@ -276,18 +276,19 @@ class monitor:
             if index==None:
                 videoList=videoList.json().get('videos')
                 buttons=[]
-                for index,video in enumerate(reversed(videoList)):
+                for index,video in enumerate((videoList)):
                     start_time=datetime.fromisoformat(video.get('time'))
                     start=humanize.naturaltime(start_time)
-                    if video['status']==1:
-                        start=start.upper()
                     if video['objects']:
                         objects=video['objects']
+                    if video['status']==1:
+                        start=start.upper()
+                        objects=objects.upper()
                     CallBack=f'{tag};;{index};;{self.mid}'
-                    buttons.append([InlineKeyboardButton(text=f'{start} -> {objects}', callback_data=CallBack)])
-                reply_markup = InlineKeyboardMarkup(buttons)
-                await self.context.bot.send_message(chat_id=self.chat_id, text="Select one video <b>(in uppercase are new)</b>.", reply_markup=reply_markup, parse_mode='HTML')
-            elif operation==None and index!=None:
+                    buttons.insert(0, [InlineKeyboardButton(text=f'{start} -> {objects}', callback_data=CallBack)])
+                reply_markup = InlineKeyboardMarkup(buttons[-20:])
+                await self.context.bot.send_message(chat_id=self.chat_id, text="Select one video from this limited (20) list <b>(in uppercase are new)</b>.", reply_markup=reply_markup, parse_mode='HTML')
+            elif operation==None:
                 index=int(index)
                 number=len(videoList.json().get('videos'))
                 video=videoList.json().get('videos')[index]
@@ -315,7 +316,11 @@ class monitor:
                     if temp:
                         logger.info(f'Video {self.mid}->{fileName} set as read')
                         await self.query.answer("Video set as read.\U0001F373")
-                await self.context.bot.send_video(chat_id=self.chat_id, video=videoUrl, supports_streaming=True, caption=f'<b>{index+1}/{number} - {time} - {duration} - {size}</b>', reply_markup=reply_markup, parse_mode='HTML')
+                try:
+                    await self.context.bot.send_video(chat_id=self.chat_id, video=videoUrl, supports_streaming=True, caption=f'<b>{index+1}/{number} - {time} - {duration} - {size}</b>', reply_markup=reply_markup, parse_mode='HTML')
+                except error.TelegramError as e:
+                    await self.context.bot.send_message(chat_id=self.chat_id, text=f'<b>{index+1}/{number} - {time} - {duration} - {size}\n{videoUrl}</b>', disable_web_page_preview=False, reply_markup=reply_markup, parse_mode='HTML')
+                    logger.error(f'Error sending video, maybe exceed 20Mb, sending link...: \n{e}')
             else:
                 index=int(index)
                 video=videoList.json().get('videos')[index]
@@ -333,6 +338,8 @@ class monitor:
                 if temp:
                     logger.info(f'Video {self.mid}->{fileName} {caption}')
                     await self.query.answer(f'Video {caption}.\U0001F373')
+        else:
+            await self.query.answer("No videos found for this monitor...\u26A0\ufe0f")         
     async def getmap(self):
         data=await queryUrl(self.context, self.chat_id, self.url)
         if data:
@@ -341,7 +348,6 @@ class monitor:
             longitude=data[1]
             if latitude=='49.2578298' and longitude=='-123.2634732':
                 await self.query.answer(text="No map data for this monitor...\u26A0\ufe0f", show_alert=True)
-
             print(type(data), data)
         
     async def configure(self, key, value, desc=None):
@@ -352,7 +358,7 @@ class monitor:
             if key in details.keys():
                 details[key]=value
                 data['details']=details
-                endpoint = f"{shinobiBaseUrl}:{shinobiPort}/{shinobiApiKey}/configureMonitor/{shinobiGroupKey}/{self.mid}"
+                endpoint = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/configureMonitor/{shinobi_group_key}/{self.mid}"
                 method='post'
                 debug=True
                 await queryUrl(self.chat_id, self.context, endpoint, method, data, debug)
@@ -361,8 +367,18 @@ class monitor:
                 await self.context.bot.send_message(chat_id=self.chat_id, text="Unknown parameter... \u26A0\ufe0f")
                 return False
 
+def buildSettings(data):
+    for key, value in data.items():
+        for sub_key, sub_value in value.items():
+            variable_name = f'{key}_{sub_key}'
+            variable_name = variable_name.replace(' ', '_')
+            variable_name = variable_name.replace('-', '_')
+            logger.debug(f'Assigning global variable {variable_name}...')
+            globals()[variable_name] = sub_value
+    return True
+
 if __name__ == '__main__':
-    needed = {'Telegram':['api_key'],'Shinobi':['api_key','group_key','url','port']}
+    needed = {'telegram':['api_key'],'shinobi':['api_key','group_key','base_url','port']}
     result = ini_check.iniCheck(needed,config_file)
     frame = inspect.currentframe()
     command_functions = [obj for name, obj in frame.f_globals.items() if inspect.isfunction(obj) and name.endswith("_command")]
@@ -381,30 +397,19 @@ if __name__ == '__main__':
             if command_functions.index(function)<len(command_functions)-1:
                 continue
         if result:
-            global telegramApiKey
-            global shinobiApiKey
-            global shinobiBaseUrl
-            global shinobiPort
-            global shinobiGroupKey
-            global telegramChatId
-            telegramApiKey=ini_check.settings.get('Telegram').get('api_key')
-            shinobiApiKey=ini_check.settings.get('Shinobi').get('api_key')
-            shinobiBaseUrl=ini_check.settings.get('Shinobi').get('url')
-            shinobiPort=ini_check.settings.get('Shinobi').get('port')
-            shinobiGroupKey=ini_check.settings.get('Shinobi').get('group_key')
-            telegramChatId=ini_check.settings.get('Telegram').get('chat_id')
-            
-            application = ApplicationBuilder().token(telegramApiKey).build()
-            
-            callback_query_handler = CallbackQueryHandler(callback_handler)
-            text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handleTextConfigure)
-            handlers=[callback_query_handler, text_handler]
-            # Below commandHandlers for commands are autogenerated parsing command functions
-            for command in commands:
-                handlers.append(CommandHandler(f'{command["command"]}', command["func"]))
-            application.add_handlers(handlers)
-            print('ShinogrammaBot Up and running')
-            application.run_polling(drop_pending_updates=True)
+            if buildSettings(ini_check.settings):
+                application = ApplicationBuilder().token(telegram_api_key).build()
+                callback_query_handler = CallbackQueryHandler(callback_handler)
+                text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handleTextConfigure)
+                handlers=[callback_query_handler, text_handler]
+                # Below commandHandlers for commands are autogenerated parsing command functions
+                for command in commands:
+                    handlers.append(CommandHandler(f'{command["command"]}', command["func"]))
+                application.add_handlers(handlers)
+                print('ShinogrammaBot Up and running')
+                application.run_polling(drop_pending_updates=True)
+            else:
+                pass
         else:
             print('INI file missed, please provide one.')
 

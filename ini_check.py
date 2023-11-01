@@ -33,7 +33,7 @@ def iniCheck(needed,config_file):
                 data[option] = value
             settings[section] = data
     if settings:
-        if not 'chat_id' in settings['Telegram']:
+        if not 'chat_id' in settings['telegram']:
             print('WARN: chat_id not defined, continuing...')
         return True
     else:
