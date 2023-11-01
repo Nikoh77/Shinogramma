@@ -26,4 +26,4 @@ async def queryUrl(logger, context, chat_id, url, method='get', data=None, debug
             print(f'Invalid method: {method}')
             return False
 if __name__ == '__main__':
-    pass
+    raise SystemExit

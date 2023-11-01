@@ -23,6 +23,8 @@ import humanize
 config_file = "config.ini"
 commands = []
 confParam, confParamVal = range(2)
+logLevel='debug'
+
 
 # Start logging
 logging.basicConfig(
@@ -31,8 +33,9 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("__main__").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 # Start decorators section
 def restricted(func):
@@ -378,6 +381,9 @@ def buildSettings(data):
     return True
 
 if __name__ == '__main__':
+    if logLevel!=('' and None):
+        logger.info(f'switching from {logging.getLevelName(logger.level)} level to {logLevel.upper()}')
+        logger.setLevel(logLevel.upper())
     needed = {'telegram':['api_key'],'shinobi':['api_key','group_key','base_url','port']}
     result = ini_check.iniCheck(needed,config_file, logger)
     frame = inspect.currentframe()
