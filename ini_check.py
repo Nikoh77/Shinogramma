@@ -4,16 +4,16 @@ import configparser
 
 settings = {}
 
-def iniCheck(needed,config_file):
+def iniCheck(needed,config_file, logger):
     config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'), comment_prefixes=('#', ';'), empty_lines_in_values=False, allow_no_value=False)
     config.read(config_file)
     for section in needed:
         if not config.has_section(section):
-            print(f'Needed section {section} does not existin your INI file, creating...')
+            logger.info(f'Needed section {section} does not existin your INI file, creating...')
             config.add_section(section)
         for option in needed[section]:
             if config.has_option(section,option):
-                print(f'Ok, {section} {option} found.')
+                logger.info(f'Ok, {section} {option} found.')
             else:
                 config.set(
                     section,
@@ -38,3 +38,5 @@ def iniCheck(needed,config_file):
         return True
     else:
         return False
+if __name__ == '__main__':
+    raise SystemExit

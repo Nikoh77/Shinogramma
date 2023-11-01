@@ -1,17 +1,7 @@
 import requests
-import logging
 import json #for debug only, can be removed when all work fine...
 
-# Start logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-logger = logging.getLogger(__name__)
-
-async def queryUrl(context, chat_id, url, method='get', data=None, debug=False):
+async def queryUrl(logger, context, chat_id, url, method='get', data=None, debug=False):
         methods=['get','post','put','delete']
         if method in methods:
             http_method = getattr(requests, method)

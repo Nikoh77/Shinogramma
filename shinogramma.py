@@ -95,7 +95,7 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     desc='List all states'
     tag='states'
     url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitorStates/{shinobi_group_key}"
-    data=await queryUrl(chat_id, context, url)
+    data=await queryUrl(logger, chat_id, context, url)
     if data:
         data=data.json()
         states = []
@@ -118,7 +118,7 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     desc='List all monitors'
     tag='monitors'
     url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitor/{shinobi_group_key}"
-    data= await queryUrl(chat_id, context, url)
+    data= await queryUrl(logger, chat_id, context, url)
     if data:
         data=data.json()
         monitors = []
@@ -161,7 +161,7 @@ async def callback_handler(update: Update, context: CallbackContext):
     tag=inputdata[0]
     if tag=='states':
         url=f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitorStates/{shinobi_group_key}/{inputdata[1]}"
-        data=await queryUrl(chat_id, context, url)
+        data=await queryUrl(logger, chat_id, context, url)
         if data:
             await query.answer('OK, done \U0001F44D')
     elif tag=='monitors':
@@ -221,7 +221,7 @@ class monitor:
         self.query=update.callback_query
 
     async def getsnapshot(self):
-        data=await queryUrl(self.context, self.chat_id, self.url)
+        data=await queryUrl(logger, self.context, self.chat_id, self.url)
         if data:
             data=data.json()
             if json.loads(data[0]['details'])['snap']=='1':
@@ -237,7 +237,7 @@ class monitor:
                 return False
 
     async def getstream(self):
-        data=await queryUrl(self.context, self.chat_id, self.url)
+        data=await queryUrl(logger, self.context, self.chat_id, self.url)
         if data:
             data=data.json()
             streamTypes=['hls','mjpeg','flv','mp4']
@@ -271,7 +271,7 @@ class monitor:
         method='get'
         data=None
         debug=True
-        videoList=await queryUrl(self.context, self.chat_id, url, method, data, debug)
+        videoList=await queryUrl(logger, self.context, self.chat_id, url, method, data, debug)
         if videoList:
             if index==None:
                 videoList=videoList.json().get('videos')
@@ -312,7 +312,7 @@ class monitor:
                     buttons[0].append(InlineKeyboardButton('next', callback_data=f'{tag};;{index+1};;{self.mid}'))
                 reply_markup = InlineKeyboardMarkup(buttons)
                 if video['status']==1:
-                    temp=await queryUrl(self.context, self.chat_id, setRead, method, data, debug)
+                    temp=await queryUrl(logger, self.context, self.chat_id, setRead, method, data, debug)
                     if temp:
                         logger.info(f'Video {self.mid}->{fileName} set as read')
                         await self.query.answer("Video set as read.\U0001F373")
@@ -334,14 +334,14 @@ class monitor:
                 elif operation=='delete':
                     url=delete
                     caption='has been deleted'
-                temp=await queryUrl(self.context, self.chat_id, url, method, data, debug)
+                temp=await queryUrl(logger, self.context, self.chat_id, url, method, data, debug)
                 if temp:
                     logger.info(f'Video {self.mid}->{fileName} {caption}')
                     await self.query.answer(f'Video {caption}.\U0001F373')
         else:
             await self.query.answer("No videos found for this monitor...\u26A0\ufe0f")         
     async def getmap(self):
-        data=await queryUrl(self.context, self.chat_id, self.url)
+        data=await queryUrl(logger, self.context, self.chat_id, self.url)
         if data:
             data=json.loads(data.json()[0]['details']).get('geolocation').split(',')
             latitude=data[0]
@@ -351,7 +351,7 @@ class monitor:
             print(type(data), data)
         
     async def configure(self, key, value, desc=None):
-        data=await queryUrl(self.context, self.chat_id, self.url)
+        data=await queryUrl(logger, self.context, self.chat_id, self.url)
         if data:
             data=data.json()[0]
             details=json.loads(data['details'])
@@ -361,7 +361,7 @@ class monitor:
                 endpoint = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/configureMonitor/{shinobi_group_key}/{self.mid}"
                 method='post'
                 debug=True
-                await queryUrl(self.chat_id, self.context, endpoint, method, data, debug)
+                await queryUrl(logger, self.chat_id, self.context, endpoint, method, data, debug)
             else:
                 logger.info('unknown parameter')
                 await self.context.bot.send_message(chat_id=self.chat_id, text="Unknown parameter... \u26A0\ufe0f")
@@ -379,7 +379,7 @@ def buildSettings(data):
 
 if __name__ == '__main__':
     needed = {'telegram':['api_key'],'shinobi':['api_key','group_key','base_url','port']}
-    result = ini_check.iniCheck(needed,config_file)
+    result = ini_check.iniCheck(needed,config_file, logger)
     frame = inspect.currentframe()
     command_functions = [obj for name, obj in frame.f_globals.items() if inspect.isfunction(obj) and name.endswith("_command")]
     for function in command_functions:
