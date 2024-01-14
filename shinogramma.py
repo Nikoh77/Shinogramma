@@ -36,17 +36,23 @@ import io
 import m3u8
 import humanize
 from ini_check import settings
+from typing import NewType
 
 # Defining root variables
+URL = NewType("URL", str)
 config_file = "config.ini"
 commands = []
 confParam, confParamVal = range(2)
 logLevel = "debug"
-needed = {
-    "telegram": ["api_key"],
-    "shinobi": ["api_key", "group_key", "base_url", "port"],
+needed: dict[str, list] = {
+    "telegram": [{"name": "api_key", "typeOf": str, "data": None}],
+    "shinobi": [
+        {"name": "api_key", "typeOf": str, "data": None},
+        {"name": "group_key", "typeOf": str, "data": None},
+        {"name": "base_url", "typeOf": URL, "data": None},
+        {"name": "port", "typeOf": int, "data": None},
+    ],
 }
-
 
 # Start logging
 logging.basicConfig(
@@ -263,7 +269,9 @@ async def callback_handler(update: Update, context: CallbackContext):
         if data:
             await query.answer(text="OK, done \U0001F44D")
     elif tag == "monitors":
-        await monitors_subcommand(update=update, context=context, mid=inputdata[1], name=inputdata[2])
+        await monitors_subcommand(
+            update=update, context=context, mid=inputdata[1], name=inputdata[2]
+        )
     elif tag == "submonitors":
         mid = inputdata[2]
         thisMonitor = monitor(update=update, context=context, chat_id=chat_id, mid=mid)
@@ -291,7 +299,9 @@ async def callback_handler(update: Update, context: CallbackContext):
         if len(inputdata) == 3:
             videolist = await thisMonitor.getvideo(index=inputdata[1])
         if len(inputdata) == 4:
-            videoOp = await thisMonitor.getvideo(index=inputdata[1], operation=inputdata[3])
+            videoOp = await thisMonitor.getvideo(
+                index=inputdata[1], operation=inputdata[3]
+            )
 
 
 async def handleTextConfigure(update: Update, context: CallbackContext):
@@ -325,7 +335,9 @@ class monitor:
         self.query = update.callback_query
 
     async def getsnapshot(self):
-        data = await queryUrl(logger=logger, context=self.context, chat_id=self.chat_id, url=self.url)
+        data = await queryUrl(
+            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
+        )
         if data:
             data = data.json()
             if json.loads(data[0]["details"])["snap"] == "1":
@@ -344,7 +356,9 @@ class monitor:
                 return False
 
     async def getstream(self):
-        data = await queryUrl(logger=logger, context=self.context, chat_id=self.chat_id, url=self.url)
+        data = await queryUrl(
+            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
+        )
         if data:
             data = data.json()
             streamTypes = ["hls", "mjpeg", "flv", "mp4"]
@@ -393,7 +407,13 @@ class monitor:
         data = None
         debug = True
         videoList = await queryUrl(
-            logger=logger, context=self.context, chat_id=self.chat_id, url=url, method=method, data=data, debug=debug
+            logger=logger,
+            context=self.context,
+            chat_id=self.chat_id,
+            url=url,
+            method=method,
+            data=data,
+            debug=debug,
         )
         if videoList:
             if index == None:
@@ -463,7 +483,13 @@ class monitor:
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
                 if video["status"] == 1:
                     temp = await queryUrl(
-                        logger=logger, context=self.context, chat_id=self.chat_id, url=setRead, method=method, data=data, debug=debug
+                        logger=logger,
+                        context=self.context,
+                        chat_id=self.chat_id,
+                        url=setRead,
+                        method=method,
+                        data=data,
+                        debug=debug,
                     )
                     if temp:
                         logger.info(msg=f"Video {self.mid}->{fileName} set as read")
@@ -502,7 +528,13 @@ class monitor:
                     url = delete
                     caption = "has been deleted"
                 temp = await queryUrl(
-                    logger=logger, context=self.context, chat_id=self.chat_id, url=url, method=method, data=data, debug=debug
+                    logger=logger,
+                    context=self.context,
+                    chat_id=self.chat_id,
+                    url=url,
+                    method=method,
+                    data=data,
+                    debug=debug,
                 )
                 if temp:
                     logger.info(f"Video {self.mid}->{fileName} {caption}")
@@ -511,7 +543,9 @@ class monitor:
             await self.query.answer("No videos found for this monitor...\u26A0\ufe0f")
 
     async def getmap(self):
-        data = await queryUrl(logger=logger, context=self.context, chat_id=self.chat_id, url=self.url)
+        data = await queryUrl(
+            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
+        )
         if data:
             data = json.loads(data.json()[0]["details"]).get("geolocation").split(",")
             latitude = data[0]
@@ -523,7 +557,9 @@ class monitor:
             print(type(data), data)
 
     async def configure(self, key, value, desc=None):
-        data = await queryUrl(logger=logger, context=self.context, chat_id=self.chat_id, url=self.url)
+        data = await queryUrl(
+            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
+        )
         if data:
             data = data.json()[0]
             details = json.loads(s=data["details"])
@@ -534,7 +570,13 @@ class monitor:
                 method = "post"
                 debug = True
                 await queryUrl(
-                    logger=logger, context=self.chat_id, chat_id=self.context, url=endpoint, method=method, data=data, debug=debug
+                    logger=logger,
+                    context=self.chat_id,
+                    chat_id=self.context,
+                    url=endpoint,
+                    method=method,
+                    data=data,
+                    debug=debug,
                 )
             else:
                 logger.info(msg="unknown parameter")
@@ -561,7 +603,7 @@ if __name__ == "__main__":
             msg=f"switching from {logging.getLevelName(level=logger.level)} level to {logLevel.upper()}"
         )
         logger.setLevel(level=logLevel.upper())
-    result = ini_check.iniCheck(needed=needed, config_file=config_file, logger=logger)
+    result = ini_check.iniCheck(needed=needed, missedTypeList=[URL], config_file=config_file, logger=logger)
     frame = inspect.currentframe()
     command_functions = [
         obj
@@ -575,7 +617,9 @@ if __name__ == "__main__":
         pattern = r'desc\s*=\s*["\'](.*?)["\']'
         desc = re.search(pattern=pattern, string=code)
         if not desc:
-            logger.critical(msg=f"WARN: {function.__name__} function has no description...")
+            logger.critical(
+                msg=f"WARN: {function.__name__} function has no description..."
+            )
             break
         else:
             data = {
@@ -592,13 +636,16 @@ if __name__ == "__main__":
                 application = ApplicationBuilder().token(token=telegram_api_key).build()
                 callback_query_handler = CallbackQueryHandler(callback=callback_handler)
                 text_handler = MessageHandler(
-                    filters=filters.TEXT & ~filters.COMMAND, callback=handleTextConfigure
+                    filters=filters.TEXT & ~filters.COMMAND,
+                    callback=handleTextConfigure,
                 )
                 handlers = [callback_query_handler, text_handler]
                 # Below commandHandlers for commands are autogenerated parsing command functions
                 for command in commands:
                     handlers.append(
-                        CommandHandler(command=f'{command["command"]}', callback=command["func"])
+                        CommandHandler(
+                            command=f'{command["command"]}', callback=command["func"]
+                        )
                     )
                 application.add_handlers(handlers=handlers)
                 print("ShinogrammaBot Up and running")
@@ -606,4 +653,4 @@ if __name__ == "__main__":
             else:
                 pass
         else:
-            print("INI file missed, please provide one.")
+            print("INI file missed or error in parsing.")

@@ -3,12 +3,13 @@
 import configparser
 from logging import Logger
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 settings: dict[Any, Any] = {}
 thisLogger: Logger | None
 
 
-def iniCheck(needed, config_file, logger=None) -> bool:
+def iniCheck(needed, missedTypeList, config_file, logger=None) -> bool:
     config = configparser.ConfigParser(
         inline_comment_prefixes=("#", ";"),
         comment_prefixes=("#", ";"),
@@ -26,14 +27,17 @@ def iniCheck(needed, config_file, logger=None) -> bool:
             )
             config.add_section(section=section)
         for option in needed[section]:
-            if config.has_option(section=section, option=option):
-                _tryLogger_(log=f"Ok, {section} {option} found.", level="info")
+            if config.has_option(section=section, option=option["name"]):
+                _tryLogger_(log=f"Ok, {section} {option['name']} found.", level="info")
             else:
-                config.set(
-                    section=section,
-                    option=option,
-                    value=input(f"Please insert the {section} {option}: "),
-                )
+                value = input(f"Please insert the {section} {option['name']}: ")
+                if verifyTypeOf(
+                    value=value, typeOf=option["typeOf"], missedTypeList=missedTypeList
+                ):
+                    config.set(section=section, option=option["name"], value=value)
+                else:
+                    _tryLogger_(log="failed typeof", level="critical")
+                    return False
     with open(file=config_file, mode="w") as configfile:
         config.write(fp=configfile)
     # Read INI file
@@ -45,24 +49,51 @@ def iniCheck(needed, config_file, logger=None) -> bool:
                 if option == "chat_id":  # If chat_id (comma separated) are defined
                     idList: list[int] = []
                     for i in value.split(sep=","):
-                        if i.isdigit():
+                        # if i.isdigit():
                             idList.append(int(i.strip()))  # I turn them into a list
-                        else:
-                            _tryLogger_(
-                                log="Found a non digit value for chat_id field in your config",
-                                level="warning",
-                            )
+                        # else:
+                        #     _tryLogger_(
+                        #         log="Found a non digit value for chat_id field in your config",
+                        #         level="warning",
+                        #     )
                     if len(idList) > 0:
                         data[option] = idList
                 else:
                     data[option] = value
-            settings[section] = data
+                print(data[option], value)
+        # print(section, data)
+        settings[section] = data
     if settings:
         if not "chat_id" in settings["telegram"]:
             _tryLogger_(log="Chat_id not defined, continuing...", level="warning")
-        print(settings)
         return True
     else:
+        return False
+
+
+def verifyTypeOf(value: str, typeOf: type, missedTypeList: list[type]) -> bool | str:
+    try:
+        if typeOf in missedTypeList:
+            for i in missedTypeList:
+                if i.__name__ == 'URL':
+                    if verifyUrl(url=value):
+                        return value
+                elif i.__name__ == 'misc':
+                    #  here other types
+                    pass
+        else:
+            convertedValue = typeOf(value)
+            return convertedValue
+        return False
+    except ValueError:
+        return False
+
+
+def verifyUrl(url: str) -> bool:
+    try:
+        result = urlparse(url=url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
         return False
 
 
