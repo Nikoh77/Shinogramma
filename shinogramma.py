@@ -36,21 +36,19 @@ import io
 import m3u8
 import humanize
 from ini_check import settings
-from typing import NewType
 
 # Defining root variables
-URL = NewType("URL", str)
 config_file = "config.ini"
 commands = []
 confParam, confParamVal = range(2)
 logLevel = "debug"
 needed: dict[str, list] = {
-    "telegram": [{"name": "api_key", "typeOf": str, "data": None}],
+    "telegram": [{"name": "api_key", "typeOf": str, "data": None, "isUrl": False}],
     "shinobi": [
-        {"name": "api_key", "typeOf": str, "data": None},
-        {"name": "group_key", "typeOf": str, "data": None},
-        {"name": "base_url", "typeOf": URL, "data": None},
-        {"name": "port", "typeOf": int, "data": None},
+        {"name": "api_key", "typeOf": str, "data": None, "isUrl": False},
+        {"name": "group_key", "typeOf": str, "data": None, "isUrl": False},
+        {"name": "base_url", "typeOf": str, "data": None, "isUrl": True},
+        {"name": "port", "typeOf": int, "data": None, "isUrl": False},
     ],
 }
 
@@ -603,7 +601,7 @@ if __name__ == "__main__":
             msg=f"switching from {logging.getLevelName(level=logger.level)} level to {logLevel.upper()}"
         )
         logger.setLevel(level=logLevel.upper())
-    result = ini_check.iniCheck(needed=needed, missedTypeList=[URL], config_file=config_file, logger=logger)
+    result = ini_check.iniCheck(needed=needed, config_file=config_file, logger=logger)
     frame = inspect.currentframe()
     command_functions = [
         obj

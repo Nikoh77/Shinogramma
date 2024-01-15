@@ -9,7 +9,7 @@ settings: dict[Any, Any] = {}
 thisLogger: Logger | None
 
 
-def iniCheck(needed, missedTypeList, config_file, logger=None) -> bool:
+def iniCheck(needed, config_file, logger=None) -> bool:
     config = configparser.ConfigParser(
         inline_comment_prefixes=("#", ";"),
         comment_prefixes=("#", ";"),
@@ -32,11 +32,11 @@ def iniCheck(needed, missedTypeList, config_file, logger=None) -> bool:
             else:
                 value = input(f"Please insert the {section} {option['name']}: ")
                 if verifyTypeOf(
-                    value=value, typeOf=option["typeOf"], missedTypeList=missedTypeList
+                    value=value, typeOf=option["typeOf"], isUrl=option["isUrl"]
                 ):
                     config.set(section=section, option=option["name"], value=value)
                 else:
-                    _tryLogger_(log="failed typeof", level="critical")
+                    _tryLogger_(log="TypeOf check failed", level="error")
                     return False
     with open(file=config_file, mode="w") as configfile:
         config.write(fp=configfile)
@@ -45,42 +45,45 @@ def iniCheck(needed, missedTypeList, config_file, logger=None) -> bool:
         options = config.items(section=section)
         data: dict = {}
         for option, value in options:
-            if value and value != "":  # if value != ("" and None)
-                if option == "chat_id":  # If chat_id (comma separated) are defined
-                    idList: list[int] = []
-                    for i in value.split(sep=","):
-                        # if i.isdigit():
+            if value and value != "":
+                for optionInNeeded in needed[section]:
+                    if optionInNeeded["name"] == option:
+                        convertedValue = verifyTypeOf(
+                            value=value,
+                            typeOf=optionInNeeded["typeOf"],
+                            isUrl=optionInNeeded["isUrl"],
+                        )
+                        if convertedValue:
+                            data[option] = convertedValue
+                        else:
+                            _tryLogger_(
+                                log=f"TypeOf check failed in {section} {option}",
+                                level="error",
+                            )
+                            return False
+                    elif (
+                        option == "chat_id"
+                    ):  # If chat_id (comma separated) are defined
+                        idList: list[int] = []
+                        for i in value.split(sep=","):
                             idList.append(int(i.strip()))  # I turn them into a list
-                        # else:
-                        #     _tryLogger_(
-                        #         log="Found a non digit value for chat_id field in your config",
-                        #         level="warning",
-                        #     )
-                    if len(idList) > 0:
-                        data[option] = idList
-                else:
-                    data[option] = value
-                print(data[option], value)
-        # print(section, data)
+                        if len(idList) > 0:
+                            data[option] = idList
+                    else:
+                        data[option] = value
         settings[section] = data
     if settings:
         if not "chat_id" in settings["telegram"]:
             _tryLogger_(log="Chat_id not defined, continuing...", level="warning")
         return True
-    else:
-        return False
+    return False
 
 
-def verifyTypeOf(value: str, typeOf: type, missedTypeList: list[type]) -> bool | str:
+def verifyTypeOf(value: str, typeOf: type, isUrl: bool) -> bool | str:
     try:
-        if typeOf in missedTypeList:
-            for i in missedTypeList:
-                if i.__name__ == 'URL':
-                    if verifyUrl(url=value):
-                        return value
-                elif i.__name__ == 'misc':
-                    #  here other types
-                    pass
+        if isUrl:
+            if verifyUrl(url=value):
+                return value
         else:
             convertedValue = typeOf(value)
             return convertedValue
