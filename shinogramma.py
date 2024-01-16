@@ -22,27 +22,27 @@ from telegram import (
     error,
 )
 from functools import wraps
-
-# from monitor import monitor
+import colorlog
 from httpQueryUrl import queryUrl
 from datetime import datetime
-import ini_check
 import logging
 import inspect
 import re
 import json
 import time
 import io
-import m3u8
+import m3u8  # type: ignore
 import humanize
-from ini_check import settings
+from ini_check import IniSettings
+from pathlib import Path
+from typing import Literal
 
 # Defining root variables
-config_file = "config.ini"
+config_file: Path = Path("config.ini")
 commands = []
 confParam, confParamVal = range(2)
 logLevel = "debug"
-needed: dict[str, list] = {
+neededSettings: dict[str, list] = {
     "telegram": [{"name": "api_key", "typeOf": str, "data": None, "isUrl": False}],
     "shinobi": [
         {"name": "api_key", "typeOf": str, "data": None, "isUrl": False},
@@ -51,21 +51,83 @@ needed: dict[str, list] = {
         {"name": "port", "typeOf": int, "data": None, "isUrl": False},
     ],
 }
+#  Dummies variables to avoid linting "not defined error"; if you add items to
+#  neededSettings you will have to manually add them here too
+telegram_api_key: str | None = None
+shinobi_api_key: str | None = None
+shinobi_group_key: str | None = None
+shinobi_base_url: str | None = None
+shinobi_port: int | None = None
+telegram_chat_id: list = []
 
 # Start logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+# logging.basicConfig(
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+#     level=logging.INFO,
+#     datefmt="%Y-%m-%d %H:%M:%S",
+# )
+# logging.getLogger(name="httpx").setLevel(level=logging.WARNING)
+# logger = logging.getLogger(name=__name__)
+# logger.setLevel(level=logging.INFO)
+
+# Start logging
+logger = colorlog.getLogger(name=__name__)
+formatter = colorlog.ColoredFormatter(
+    fmt="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
+    reset=True,
+    log_colors={
+        "DEBUG": "cyan",
+        "INFO": "green",
+        "WARNING": "yellow",
+        "ERROR": "bold_red",
+        "CRITICAL": "bold_red,bg_white",
+    },
+    secondary_log_colors={},
+    style="%",
 )
-logging.getLogger(name="httpx").setLevel(level=logging.WARNING)
-logger = logging.getLogger(name=__name__)
-logger.setLevel(level=logging.INFO)
+handler = colorlog.StreamHandler()
+handler.setFormatter(fmt=formatter)
+logger.addHandler(hdlr=handler)
+currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
+if logLevel != ("" and None and currentLevel):
+    getattr(logger, currentLevel)(
+        f"switching from debug level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+    )
+    logger.setLevel(level=logLevel.upper())
+    logger.debug(
+        msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+    )
+
+
+def buildSettings(data) -> bool:
+    if data:
+        for i, v in data:
+            globals()[i] = v
+        return True
+    return False
+
+def __tryLogger(
+    log: str,
+    level: Literal["debug", "info", "warning", "error", "critical"] = "debug",
+) -> None:
+    """Try to log a message with the specified level using the class logger; if not available, use print.
+
+    Args:
+        log (str): The log message.
+        level (str, optional): The log level (default is 'debug').
+    """
+    if self.__thisLogger is not None:
+        self.__thisLogger.name = __name__
+        log_method = getattr(self.__thisLogger, level)
+        log_method(log)
+    else:
+        print(f"Error writing log, continuing with simple print\n{log}")
 
 
 # Start decorators section
 def restricted(func):
-    """Restrict chat only with id in config.ini."""
+    """Restrict chat only with id(es) defined in config.ini"""
 
     @wraps(wrapped=func)
     def wrapped(update, context, *args, **kwargs):
@@ -272,7 +334,7 @@ async def callback_handler(update: Update, context: CallbackContext):
         )
     elif tag == "submonitors":
         mid = inputdata[2]
-        thisMonitor = monitor(update=update, context=context, chat_id=chat_id, mid=mid)
+        thisMonitor = Monitor(update=update, context=context, chat_id=chat_id, mid=mid)
         if inputdata[1] == "snapshot":
             if not await thisMonitor.getsnapshot():
                 key = "snap"
@@ -293,7 +355,7 @@ async def callback_handler(update: Update, context: CallbackContext):
             geolocation = await thisMonitor.getmap()
     elif tag == "video":
         mid = inputdata[2]
-        thisMonitor = monitor(update=update, context=context, chat_id=chat_id, mid=mid)
+        thisMonitor = Monitor(update=update, context=context, chat_id=chat_id, mid=mid)
         if len(inputdata) == 3:
             videolist = await thisMonitor.getvideo(index=inputdata[1])
         if len(inputdata) == 4:
@@ -323,7 +385,7 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
             await thisMonitor.configure(key, value)
 
 
-class monitor:
+class Monitor:
     def __init__(self, update, context, chat_id, mid):
         self.update = update
         self.context = context
@@ -584,24 +646,16 @@ class monitor:
                 return False
 
 
-def buildSettings(data):
-    for key, value in data.items():
-        for sub_key, sub_value in value.items():
-            variable_name = f"{key}_{sub_key}"
-            variable_name = variable_name.replace(" ", "_")
-            variable_name = variable_name.replace("-", "_")
-            logger.debug(msg=f"Assigning global variable {variable_name}...")
-            globals()[variable_name] = sub_value
-    return True
-
-
 if __name__ == "__main__":
     if logLevel != ("" and None):
         logger.info(
             msg=f"switching from {logging.getLevelName(level=logger.level)} level to {logLevel.upper()}"
         )
         logger.setLevel(level=logLevel.upper())
-    result = ini_check.iniCheck(needed=needed, config_file=config_file, logger=logger)
+    settings = IniSettings(
+        neededSettings=neededSettings, configFile=config_file, logger=logger
+    )
+    # result = ini_check.iniCheck(needed=needed, config_file=config_file, logger=logger)
     frame = inspect.currentframe()
     command_functions = [
         obj
@@ -629,26 +683,24 @@ if __name__ == "__main__":
             commands.append(data)
             if command_functions.index(function) < len(command_functions) - 1:
                 continue
-        if result:
-            if buildSettings(data=settings):
-                application = ApplicationBuilder().token(token=telegram_api_key).build()
-                callback_query_handler = CallbackQueryHandler(callback=callback_handler)
-                text_handler = MessageHandler(
-                    filters=filters.TEXT & ~filters.COMMAND,
-                    callback=handleTextConfigure,
-                )
-                handlers = [callback_query_handler, text_handler]
-                # Below commandHandlers for commands are autogenerated parsing command functions
-                for command in commands:
-                    handlers.append(
-                        CommandHandler(
-                            command=f'{command["command"]}', callback=command["func"]
-                        )
+        if buildSettings(data=settings.iniRead()):
+            application = ApplicationBuilder().token(token=telegram_api_key).build()
+            callback_query_handler = CallbackQueryHandler(callback=callback_handler)
+            text_handler = MessageHandler(
+                filters=filters.TEXT & ~filters.COMMAND,
+                callback=handleTextConfigure,
+            )
+            handlers = [callback_query_handler, text_handler]
+            # Below commandHandlers for commands are autogenerated parsing command functions
+            for command in commands:
+                handlers.append(
+                    CommandHandler(
+                        command=f'{command["command"]}', callback=command["func"]
                     )
-                application.add_handlers(handlers=handlers)
-                print("ShinogrammaBot Up and running")
-                application.run_polling(drop_pending_updates=True)
-            else:
-                pass
+                )
+            application.add_handlers(handlers=handlers)
+            print("ShinogrammaBot Up and running")
+            application.run_polling(drop_pending_updates=True)
         else:
-            print("INI file missed or error in parsing.")
+            print("errore in buildSettings da sistemare")
+            pass
