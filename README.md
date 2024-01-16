@@ -10,12 +10,12 @@ Shinogramma is in development status so commands and things he can do can increa
 Let's say that with him, you'll be able to take real-time snapshots, view recorded or live videos, modify monitors, and activate states.\
 Shinogramma is not intended to replace the web interface; the real goal is to have an immediate tool for control and quick configurations, such as turning on intruder detection when leaving home and turning it off when returning.
 ## Installation:
-Just install python-telegram-bot with ```pip install python-telegram-bot```\
-In the same way install requests, humanize and m3u8 modules\
-clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
-and start it with ```cd Shinogramma && python3 shinogramma.py```\
-### or execute install.sh (after giving him exec rights)
-When started for the first time, it will ask you to enter the necessary data for its operation, namely:
+Clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
+(Optional but recommended...) Create a virtual environment\
+Just install required modules with ```pip install -r requirements.txt```\
+... or execute install.sh (after giving him exec rights)\
+and start it with ```cd Shinogramma && python3 shinogramma.py```
+#When started for the first time, it will ask you to enter the necessary data for its operation, namely:
 1) Telegram API key, which BotFather will provide you when you create your bot.
 2) Shinobi API key, which you can generate directly in your user area.
 3) Shinobi group key, found at the top in the Shinobi account settings.
