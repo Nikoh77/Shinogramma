@@ -14,8 +14,8 @@ Clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
 (Optional but recommended...) Create a virtual environment\
 Just install required modules with ```pip install -r requirements.txt```\
 ... or execute install.sh (after giving him exec rights)\
-and start it with ```cd Shinogramma && python3 shinogramma.py```
-#When started for the first time, it will ask you to enter the necessary data for its operation, namely:
+and start it with ```cd Shinogramma && python3 shinogramma.py```\
+When started for the first time, it will ask you to enter the necessary data for its operation, namely:
 1) Telegram API key, which BotFather will provide you when you create your bot.
 2) Shinobi API key, which you can generate directly in your user area.
 3) Shinobi group key, found at the top in the Shinobi account settings.
