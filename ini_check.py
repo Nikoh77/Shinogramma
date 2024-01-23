@@ -1,10 +1,17 @@
 # This module is needed by the main and takes care of the control and generation of the ShinotifyTB configuration file through input requests.
 
 import configparser
-from logging import Logger
-from typing import Any, Literal
+import logging
+from typing import Any
 from urllib.parse import urlparse
 from pathlib import Path
+
+logger = logger = logging.getLogger(name=__name__)
+
+
+class Url(str):
+    def __new__(cls, value):
+        return super(Url, cls).__new__(cls, object=value)
 
 
 class IniSettings:
@@ -16,7 +23,6 @@ class IniSettings:
         self,
         neededSettings: dict[str, list],
         configFile: Path,
-        logger: Logger | None = None,
     ) -> None:
         """
         Constructor of the class.
@@ -33,12 +39,11 @@ class IniSettings:
             ],
         }
         - configFile (Path): The path to config file.
-        - logger (Optional[Logger]): The logger instance from instantiating module.
             Default is None.
         """
+
         self.__neededSettings = neededSettings
         self.__configFile = configFile
-        self.__thisLogger = logger
         self.__config = configparser.ConfigParser(
             inline_comment_prefixes=("#", ";"),
             comment_prefixes=("#", ";"),
@@ -56,27 +61,23 @@ class IniSettings:
         self.__config.read(filenames=self.__configFile)
         for section in self.__neededSettings:
             if not self.__config.has_section(section=section):
-                self.__tryLogger(
-                    log=f"Needed section {section} does not existin your INI file, creating...",
-                    level="info",
+                logger.info(
+                    msg=f"Needed section {section} does not existin your INI file, creating..."
                 )
                 self.__config.add_section(section=section)
             for option in self.__neededSettings[section]:
                 if self.__config.has_option(section=section, option=option["name"]):
-                    self.__tryLogger(
-                        log=f"Ok, {section} {option['name']} found.", level="info"
-                    )
+                    logger.info(msg=f"Ok, {section} {option['name']} found.")
                 else:
-                    value = input(f"Please insert the {section} {option['name']}: ")
-                    if self.__verifyTypeOf(
-                        value=value, typeOf=option["typeOf"], isUrl=option["isUrl"]
-                    ):
-                        self.__config.set(
-                            section=section, option=option["name"], value=value
-                        )
+                    if option["data"] is None:
+                        value = input(f"Please insert the {section} {option['name']}: ")
                     else:
-                        self.__tryLogger(log="TypeOf check failed", level="error")
-                        return False
+                        value = option["data"]
+                        if self.__verifyTypeOf(value=value, typeOf=option["typeOf"]):
+                            self.__config.set(section=section, option=option["name"], value=value)
+                        else:
+                            logger.error(msg="TypeOf check failed")
+                            return False
         with open(file=self.__configFile, mode="w") as configfile:
             self.__config.write(fp=configfile)
         return True
@@ -87,6 +88,8 @@ class IniSettings:
         """
         settings: dict[Any, Any] = {}
         for section in self.__config.sections():
+            # if section not in self.__neededSettings.keys():
+            #     self.__neededSettings[section] = []
             data: dict = {}
             options = self.__config.items(section=section)
             for option, value in options:
@@ -94,39 +97,27 @@ class IniSettings:
                     for optionInNeeded in self.__neededSettings[section]:
                         if optionInNeeded["name"] == option:
                             convertedValue = self.__verifyTypeOf(
-                                value=value,
-                                typeOf=optionInNeeded["typeOf"],
-                                isUrl=optionInNeeded["isUrl"],
+                                value=value, typeOf=optionInNeeded["typeOf"]
                             )
                             if convertedValue:
                                 data[option] = convertedValue
                             else:
-                                self.__tryLogger(
-                                    log=f"TypeOf check failed in {section} {option}",
-                                    level="error",
+                                logger.error(
+                                    msg=f"TypeOf check failed in {section} {option}"
                                 )
                                 return False
-                    if option == "chat_id":  # If chat_id (comma separated) are defined
-                        idList: list[int] = []
-                        for i in value.split(sep=","):
-                            idList.append(int(i.strip()))  # I turn them into a list
-                        if len(idList) > 0:
-                            data[option] = idList
-                    else:
-                        data[option] = value
+                        else:
+                            data[option] = value
                 settings[section] = data
         if settings:
-            if not "chat_id" in settings["telegram"]:
-                self.__tryLogger(
-                    log="Chat_id not defined, continuing...", level="warning"
-                )
             return self.__buildSettings(settings=settings)
         return False
 
-    def __verifyTypeOf(self, value: str, typeOf: type, isUrl: bool) -> bool | str:
+    def __verifyTypeOf(self, value: str, typeOf: type) -> bool | str:
         """Verify and optionally convert the type of a value."""
+        # TODO aggiungere controllo per i livelli del loglevel
         try:
-            if isUrl:
+            if typeOf == Url:
                 if self.__verifyUrl(url=value):
                     return value
             else:
@@ -180,30 +171,9 @@ class IniSettings:
                 variable_name = f"{key}_{sub_key}"
                 variable_name = variable_name.replace(" ", "_")
                 variable_name = variable_name.replace("-", "_")
-                self.__tryLogger(
-                    log=f"Assigning global variable {variable_name}...", level="debug"
-                )
+                logger.info(msg=f"Assigning global variable {variable_name}...")
                 varsDict[variable_name] = sub_value
         return tuple(varsDict.items())
-
-    def __tryLogger(
-        self,
-        log: str,
-        level: Literal["debug", "info", "warning", "error", "critical"] = "debug",
-    ) -> None:
-        """Try to log a message with the specified level using the class logger; if not available, use print.
-
-        Args:
-            log (str): The log message.
-            level (str, optional): The log level (default is 'debug').
-        """
-        if self.__thisLogger is not None:
-            self.__thisLogger.name = __name__
-            log_method = getattr(self.__thisLogger, level)
-            log_method(log)
-        else:
-            print(f"Error writing log, continuing with simple print\n{log}")
-
 
 if __name__ == "__main__":
     raise SystemExit

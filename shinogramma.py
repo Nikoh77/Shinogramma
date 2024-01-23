@@ -23,57 +23,87 @@ from telegram import (
 )
 from functools import wraps
 import colorlog
-from httpQueryUrl import queryUrl
-from datetime import datetime
 import logging
 import inspect
 import re
-import json
-import time
-import io
-import m3u8  # type: ignore
-import humanize
-from ini_check import IniSettings
+from httpQueryUrl import queryUrl
+from ini_check import IniSettings, Url
+from monitor import Monitor
 from pathlib import Path
-from typing import Literal
+
+
+# Defining root constants
+"""
+Below constant is required to set the log level only for some modules directly involved by
+this application and avoid seeing the debug of all modules in the tree.
+If you want to see the logs of other modules at the "REQ_SHINOGRAMMA_LOGLEVEL" level add
+them to the list below
+"""
+MODULES_LOGGERS: list[str] = ["__main__", "httpQueryUrl", "ini_check", "monitor"]
+CONFIG_FILE: Path = Path("config.ini")
+TELEGRAM_CHAT_ID: list[int] = []
+"""
+Below required data for running this software, are defined as a constants.
+Starting from these constants the variable `neededSettings` is created; she is used by
+the `settings` class. 
+It is important to follow the syntax:
+
+REQ_ + INIsection + INIoption.
+
+For example, if you want to have following configuration in the configuration file:
+
+[BANANAS]
+number_of = 10
+color = green
+
+We need to add the following constants below:
+
+REQ_BANANAS_NUMBER_OF: dict = {"data": None, "typeOf": int}
+REQ_BANANAS_COLOR: dict = {"data": None, "typeOf": str}
+
+When starting, settings will ask the user to enter the number and color of bananas...
+
+It is important to note that the value of 'data' key of all these constants is updated 
+at runtime from None to values read from the configuration file here, by buildSettings function.
+
+An attempt will be made to convert the data to the type indicated in the constant, so 
+the string '10' entered by the user will become an integer.
+
+Is important to know that if initial data is not None this will be the default value for this costant
+and settings will not ask the user to enter this data, but if you also provide same option on the config file
+the default data will be overwritten.
+"""
+
+REQ_TELEGRAM_API_KEY: dict = {"data": None, "typeOf": str}
+REQ_SHINOBI_API_KEY: dict = {"data": None, "typeOf": str}
+REQ_SHINOBI_GROUP_KEY: dict = {"data": None, "typeOf": str}
+REQ_SHINOBI_BASE_URL: dict = {"data": None, "typeOf": Url}
+REQ_SHINOBI_PORT: dict = {"data": 8080, "typeOf": int}
+REQ_SHINOGRAMMA_LOGLEVEL: dict = {"data": "info", "typeOf": str}
 
 # Defining root variables
-config_file: Path = Path("config.ini")
 commands = []
 confParam, confParamVal = range(2)
-logLevel = "debug"
-neededSettings: dict[str, list] = {
-    "telegram": [{"name": "api_key", "typeOf": str, "data": None, "isUrl": False}],
-    "shinobi": [
-        {"name": "api_key", "typeOf": str, "data": None, "isUrl": False},
-        {"name": "group_key", "typeOf": str, "data": None, "isUrl": False},
-        {"name": "base_url", "typeOf": str, "data": None, "isUrl": True},
-        {"name": "port", "typeOf": int, "data": None, "isUrl": False},
-    ],
-}
-#  Dummies variables to avoid linting "not defined error"; if you add items to
-#  neededSettings you will have to manually add them here too
-telegram_api_key: str | None = None
-shinobi_api_key: str | None = None
-shinobi_group_key: str | None = None
-shinobi_base_url: str | None = None
-shinobi_port: int | None = None
-telegram_chat_id: list = []
-
-# Start logging
-# logging.basicConfig(
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-#     level=logging.INFO,
-#     datefmt="%Y-%m-%d %H:%M:%S",
-# )
-# logging.getLogger(name="httpx").setLevel(level=logging.WARNING)
-# logger = logging.getLogger(name=__name__)
-# logger.setLevel(level=logging.INFO)
+neededSettings: dict[str, list] = {}
+# Building neededSettings
+for i in list(globals().keys()):
+    if i.startswith("REQ_"):
+        section = i.split(sep="_")[1]
+        option = i.replace("REQ_" + section + "_", "").lower()
+        if section not in neededSettings.keys():
+            neededSettings.update({section: []})
+        neededSettings[section].append(
+            {
+                "name": option,
+                "data": globals()[i].get("data"),
+                "typeOf": globals()[i].get("typeOf"),
+            }
+        )
 
 # Start logging
 logger = colorlog.getLogger(name=__name__)
-formatter = colorlog.ColoredFormatter(
-    fmt="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
+colorlog.basicConfig(
+    format="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     reset=True,
     log_colors={
@@ -86,43 +116,46 @@ formatter = colorlog.ColoredFormatter(
     secondary_log_colors={},
     style="%",
 )
-handler = colorlog.StreamHandler()
-handler.setFormatter(fmt=formatter)
-logger.addHandler(hdlr=handler)
-currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
-if logLevel != ("" and None and currentLevel):
-    getattr(logger, currentLevel)(
-        f"switching from debug level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-    )
-    logger.setLevel(level=logLevel.upper())
-    logger.debug(
-        msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-    )
+
+
+def setLogLevel() -> None:
+    currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
+    if REQ_SHINOGRAMMA_LOGLEVEL["data"].upper() != currentLevel:
+        getattr(logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower())(
+            f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+        )
+        logger.setLevel(level=REQ_SHINOGRAMMA_LOGLEVEL["data"].upper())
+        currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
+        getattr(logger, currentLevel)(
+            msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+        )
+        for module in MODULES_LOGGERS:
+            logging.getLogger(name=module).setLevel(
+                level=REQ_SHINOGRAMMA_LOGLEVEL["data"].upper()
+            )
+
+
+setLogLevel()
+settings = IniSettings(neededSettings=neededSettings, configFile=CONFIG_FILE)
 
 
 def buildSettings(data) -> bool:
     if data:
         for i, v in data:
-            globals()[i] = v
+            varName = "REQ_" + i.upper()
+            if varName in globals().keys():
+                globals()[varName].update({"data": v})
+            else:
+                varName = i.upper()
+                if (
+                    varName == "TELEGRAM_CHAT_ID"
+                ):  # If chat_id (comma separated) are defined
+                    for i in v.split(sep=","):
+                        globals()[varName].append(int(i.strip()))
+                else:
+                    globals()[varName] = v
         return True
     return False
-
-def __tryLogger(
-    log: str,
-    level: Literal["debug", "info", "warning", "error", "critical"] = "debug",
-) -> None:
-    """Try to log a message with the specified level using the class logger; if not available, use print.
-
-    Args:
-        log (str): The log message.
-        level (str, optional): The log level (default is 'debug').
-    """
-    if self.__thisLogger is not None:
-        self.__thisLogger.name = __name__
-        log_method = getattr(self.__thisLogger, level)
-        log_method(log)
-    else:
-        print(f"Error writing log, continuing with simple print\n{log}")
 
 
 # Start decorators section
@@ -131,10 +164,10 @@ def restricted(func):
 
     @wraps(wrapped=func)
     def wrapped(update, context, *args, **kwargs):
-        if not telegram_chat_id:
+        if len(TELEGRAM_CHAT_ID) == 0:
             return func(update, context, *args, **kwargs)
         chat_id = update.effective_user.id
-        if chat_id not in telegram_chat_id:
+        if chat_id not in TELEGRAM_CHAT_ID:
             print("Unauthorized, access denied for {}.".format(chat_id))
             return
         return func(update, context, *args, **kwargs)
@@ -146,7 +179,7 @@ def send_action(action):
     """Sends `action` while processing func command."""
 
     def decorator(func):
-        @wraps(func)
+        @wraps(wrapped=func)
         async def command_func(update, context, *args, **kwargs):
             chat_id = update.effective_user.id
             await context.bot.send_chat_action(chat_id=chat_id, action=action)
@@ -216,8 +249,8 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     desc = "List all states"
     tag = "states"
-    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitorStates/{shinobi_group_key}"
-    data = await queryUrl(logger=logger, context=chat_id, chat_id=context, url=url)
+    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}"
+    data = await queryUrl(context=chat_id, chat_id=context, url=url)
     if data:
         data = data.json()
         states = []
@@ -248,8 +281,8 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     desc = "List all monitors"
     tag = "monitors"
-    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitor/{shinobi_group_key}"
-    data = await queryUrl(logger=logger, context=chat_id, chat_id=context, url=url)
+    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitor/{REQ_SHINOBI_GROUP_KEY['data']}"
+    data = await queryUrl(context=chat_id, chat_id=context, url=url)
     if data:
         data = data.json()
         monitors = []
@@ -282,7 +315,7 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @restricted
-@send_action(constants.ChatAction.TYPING)
+@send_action(action=constants.ChatAction.TYPING)
 async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     desc = "Edit shinogramma settings"
@@ -292,7 +325,7 @@ async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 # End Telegram/Bot commands definition:
 
 
-@send_action(constants.ChatAction.TYPING)
+@send_action(action=constants.ChatAction.TYPING)
 async def monitors_subcommand(
     update: Update, context: ContextTypes.DEFAULT_TYPE, mid, name
 ):
@@ -304,7 +337,7 @@ async def monitors_subcommand(
         buttons.append(
             [
                 InlineKeyboardButton(
-                    choice, callback_data=tag + ";;" + choice + ";;" + mid
+                    text=choice, callback_data=tag + ";;" + choice + ";;" + mid
                 )
             ]
         )
@@ -324,8 +357,8 @@ async def callback_handler(update: Update, context: CallbackContext):
     inputdata = query.data.split(";;")
     tag = inputdata[0]
     if tag == "states":
-        url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitorStates/{shinobi_group_key}/{inputdata[1]}"
-        data = await queryUrl(logger=logger, context=chat_id, chat_id=context, url=url)
+        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{inputdata[1]}"
+        data = await queryUrl(context=chat_id, chat_id=context, url=url)
         if data:
             await query.answer(text="OK, done \U0001F44D")
     elif tag == "monitors":
@@ -334,7 +367,14 @@ async def callback_handler(update: Update, context: CallbackContext):
         )
     elif tag == "submonitors":
         mid = inputdata[2]
-        thisMonitor = Monitor(update=update, context=context, chat_id=chat_id, mid=mid)
+        thisMonitor = Monitor(
+            update=update
+            context=context,
+            chatId=chat_id,
+            baseUrl=REQ_SHINOBI_BASE_URL["data"],
+            port=
+            mid=mid,
+        )
         if inputdata[1] == "snapshot":
             if not await thisMonitor.getsnapshot():
                 key = "snap"
@@ -355,7 +395,7 @@ async def callback_handler(update: Update, context: CallbackContext):
             geolocation = await thisMonitor.getmap()
     elif tag == "video":
         mid = inputdata[2]
-        thisMonitor = Monitor(update=update, context=context, chat_id=chat_id, mid=mid)
+        thisMonitor = Monitor(context=context, chat_id=chat_id, mid=mid)
         if len(inputdata) == 3:
             videolist = await thisMonitor.getvideo(index=inputdata[1])
         if len(inputdata) == 4:
@@ -372,7 +412,7 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
             context.user_data["from"] = "handle"
             context.user_data["key"] = user_text
             await update.effective_message.reply_text(
-                "Which value do you want to assign?"
+                text="Which value do you want to assign?"
             )
         elif context.user_data["from"] == "handle":
             context.user_data.pop("from")
@@ -385,277 +425,15 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
             await thisMonitor.configure(key, value)
 
 
-class Monitor:
-    def __init__(self, update, context, chat_id, mid):
-        self.update = update
-        self.context = context
-        self.chat_id = chat_id
-        self.mid = mid
-        self.url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/monitor/{shinobi_group_key}/{mid}"
-        self.query = update.callback_query
-
-    async def getsnapshot(self):
-        data = await queryUrl(
-            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
-        )
-        if data:
-            data = data.json()
-            if json.loads(data[0]["details"])["snap"] == "1":
-                await self.query.answer("Cooking your snapshot...\U0001F373")
-                baseurl = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/jpeg/{shinobi_group_key}/{self.mid}/s.jpg"
-                avoidcacheurl = str(object=int(time.time()))
-                url = baseurl + "?" + avoidcacheurl
-                await self.context.bot.send_photo(chat_id=self.chat_id, photo=url)
-                return True
-            else:
-                await self.query.answer(
-                    text="Jpeg API not active on this monitor \u26A0\ufe0f",
-                    show_alert=True,
-                )
-                logger.info(msg="Jpeg API not active on this monitor")
-                return False
-
-    async def getstream(self):
-        data = await queryUrl(
-            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
-        )
-        if data:
-            data = data.json()
-            streamTypes = ["hls", "mjpeg", "flv", "mp4"]
-            streamType = json.loads(data[0]["details"])["stream_type"]
-            if streamType in streamTypes:
-                if streamType == "hls":
-                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/hls/{shinobi_group_key}/{self.mid}/s.m3u8"
-                elif streamType == "mjpeg":
-                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/mjpeg/{shinobi_group_key}/{self.mid}"
-                elif streamType == "flv":
-                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/flv/{shinobi_group_key}/{self.mid}/s.flv"
-                elif streamType == "mp4":
-                    url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/mp4/{shinobi_group_key}/{self.mid}/s.mp4"
-                playlist = m3u8.M3U8()
-                playlist.add_playlist(playlist=url)
-                vfile = io.StringIO(initial_value=playlist.dumps())
-                thumbnail_file = open(file="images/shinthumbnail.jpeg", mode="rb")
-                avoidcacheurl = str(object=int(time.time()))
-                await self.context.bot.send_document(
-                    chat_id=self.chat_id,
-                    document=vfile,
-                    filename=f"stream" + avoidcacheurl + ".m3u8",
-                    protect_content=False,
-                    thumbnail=thumbnail_file,
-                )
-                vfile.close()
-                buttons = [[InlineKeyboardButton(text="link", url=url)]]
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                await self.update.effective_message.reply_text(
-                    "With IOS use the link below, otherwise above file will be fine",
-                    reply_markup=reply_markup,
-                )
-            else:
-                logger.info(
-                    msg="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg..."
-                )
-                await self.context.bot.send_message(
-                    chat_id=self.chat_id,
-                    text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f",
-                )
-
-    async def getvideo(self, index=None, operation=None, more=False):
-        tag = "video"
-        url = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/videos/{shinobi_group_key}/{self.mid}"
-        method = "get"
-        data = None
-        debug = True
-        videoList = await queryUrl(
-            logger=logger,
-            context=self.context,
-            chat_id=self.chat_id,
-            url=url,
-            method=method,
-            data=data,
-            debug=debug,
-        )
-        if videoList:
-            if index == None:
-                videoList = videoList.json().get("videos")
-                buttons = []
-                for index, video in enumerate((videoList)):
-                    start_time = datetime.fromisoformat(video.get("time"))
-                    start = humanize.naturaltime(value=start_time)
-                    if video["objects"]:
-                        objects = video["objects"]
-                    if video["status"] == 1:
-                        start = start.upper()
-                        objects = objects.upper()
-                    CallBack = f"{tag};;{index};;{self.mid}"
-                    buttons.insert(
-                        0,
-                        [
-                            InlineKeyboardButton(
-                                text=f"{start} -> {objects}", callback_data=CallBack
-                            )
-                        ],
-                    )
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons[-20:])
-                await self.context.bot.send_message(
-                    chat_id=self.chat_id,
-                    text="Select one video from this limited (20) list <b>(in uppercase are new)</b>.",
-                    reply_markup=reply_markup,
-                    parse_mode="HTML",
-                )
-            elif operation == None:
-                index = int(index)
-                number = len(videoList.json().get("videos"))
-                video = videoList.json().get("videos")[index]
-                start_time = datetime.fromisoformat(video.get("time"))
-                end_time = datetime.fromisoformat(video.get("end"))
-                duration = humanize.naturaldelta(value=end_time - start_time)
-                time = start_time.strftime("%Y-%m-%d %H:%M:%S")
-                size = humanize.naturalsize(value=video.get("size"))
-                fileName = video.get("filename")
-                videoUrl = url + "/" + fileName
-                setRead = f"{videoUrl}/status/2"
-                buttons = [
-                    [
-                        InlineKeyboardButton(
-                            text="set unread",
-                            callback_data=f"{tag};;{index};;{self.mid};;unread",
-                        ),
-                        InlineKeyboardButton(
-                            text="delete",
-                            callback_data=f"{tag};;{index};;{self.mid};;delete",
-                        ),
-                    ]
-                ]
-                if index > 0:
-                    buttons[0].insert(
-                        0,
-                        InlineKeyboardButton(
-                            text="prev", callback_data=f"{tag};;{index-1};;{self.mid}"
-                        ),
-                    )
-                if index < number - 1:
-                    buttons[0].append(
-                        InlineKeyboardButton(
-                            text="next", callback_data=f"{tag};;{index+1};;{self.mid}"
-                        )
-                    )
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                if video["status"] == 1:
-                    temp = await queryUrl(
-                        logger=logger,
-                        context=self.context,
-                        chat_id=self.chat_id,
-                        url=setRead,
-                        method=method,
-                        data=data,
-                        debug=debug,
-                    )
-                    if temp:
-                        logger.info(msg=f"Video {self.mid}->{fileName} set as read")
-                        await self.query.answer("Video set as read.\U0001F373")
-                try:
-                    await self.context.bot.send_video(
-                        chat_id=self.chat_id,
-                        video=videoUrl,
-                        supports_streaming=True,
-                        caption=f"<b>{index+1}/{number} - {time} - {duration} - {size}</b>",
-                        reply_markup=reply_markup,
-                        parse_mode="HTML",
-                    )
-                except error.TelegramError as e:
-                    await self.context.bot.send_message(
-                        chat_id=self.chat_id,
-                        text=f"<b>{index+1}/{number} - {time} - {duration} - {size}\n{videoUrl}</b>",
-                        disable_web_page_preview=False,
-                        reply_markup=reply_markup,
-                        parse_mode="HTML",
-                    )
-                    logger.error(
-                        msg=f"Error sending video, maybe exceed 20Mb, sending link...: \n{e}"
-                    )
-            else:
-                index = int(index)
-                video = videoList.json().get("videos")[index]
-                fileName = video.get("filename")
-                videoUrl = url + "/" + fileName
-                setUnread = f"{videoUrl}/status/1"
-                delete = f"{videoUrl}/delete"
-                if operation == "unread":
-                    url = setUnread
-                    caption = "set as unread"
-                elif operation == "delete":
-                    url = delete
-                    caption = "has been deleted"
-                temp = await queryUrl(
-                    logger=logger,
-                    context=self.context,
-                    chat_id=self.chat_id,
-                    url=url,
-                    method=method,
-                    data=data,
-                    debug=debug,
-                )
-                if temp:
-                    logger.info(f"Video {self.mid}->{fileName} {caption}")
-                    await self.query.answer(f"Video {caption}.\U0001F373")
-        else:
-            await self.query.answer("No videos found for this monitor...\u26A0\ufe0f")
-
-    async def getmap(self):
-        data = await queryUrl(
-            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
-        )
-        if data:
-            data = json.loads(data.json()[0]["details"]).get("geolocation").split(",")
-            latitude = data[0]
-            longitude = data[1]
-            if latitude == "49.2578298" and longitude == "-123.2634732":
-                await self.query.answer(
-                    text="No map data for this monitor...\u26A0\ufe0f", show_alert=True
-                )
-            print(type(data), data)
-
-    async def configure(self, key, value, desc=None):
-        data = await queryUrl(
-            logger=logger, context=self.context, chat_id=self.chat_id, url=self.url
-        )
-        if data:
-            data = data.json()[0]
-            details = json.loads(s=data["details"])
-            if key in details.keys():
-                details[key] = value
-                data["details"] = details
-                endpoint = f"{shinobi_base_url}:{shinobi_port}/{shinobi_api_key}/configureMonitor/{shinobi_group_key}/{self.mid}"
-                method = "post"
-                debug = True
-                await queryUrl(
-                    logger=logger,
-                    context=self.chat_id,
-                    chat_id=self.context,
-                    url=endpoint,
-                    method=method,
-                    data=data,
-                    debug=debug,
-                )
-            else:
-                logger.info(msg="unknown parameter")
-                await self.context.bot.send_message(
-                    chat_id=self.chat_id, text="Unknown parameter... \u26A0\ufe0f"
-                )
-                return False
-
-
 if __name__ == "__main__":
-    if logLevel != ("" and None):
-        logger.info(
-            msg=f"switching from {logging.getLevelName(level=logger.level)} level to {logLevel.upper()}"
+    if not buildSettings(data=settings.iniRead()):
+        print("errore in buildSettings da sistemare")
+        # do something
+    if not len(TELEGRAM_CHAT_ID) > 0:
+        logger.warning(
+            msg="Chat_id not defined, this could be very dangerous, continuing..."
         )
-        logger.setLevel(level=logLevel.upper())
-    settings = IniSettings(
-        neededSettings=neededSettings, configFile=config_file, logger=logger
-    )
-    # result = ini_check.iniCheck(needed=needed, config_file=config_file, logger=logger)
+    setLogLevel()
     frame = inspect.currentframe()
     command_functions = [
         obj
@@ -683,8 +461,9 @@ if __name__ == "__main__":
             commands.append(data)
             if command_functions.index(function) < len(command_functions) - 1:
                 continue
-        if buildSettings(data=settings.iniRead()):
-            application = ApplicationBuilder().token(token=telegram_api_key).build()
+            application = (
+                ApplicationBuilder().token(token=REQ_TELEGRAM_API_KEY["data"]).build()
+            )
             callback_query_handler = CallbackQueryHandler(callback=callback_handler)
             text_handler = MessageHandler(
                 filters=filters.TEXT & ~filters.COMMAND,
@@ -701,6 +480,3 @@ if __name__ == "__main__":
             application.add_handlers(handlers=handlers)
             print("ShinogrammaBot Up and running")
             application.run_polling(drop_pending_updates=True)
-        else:
-            print("errore in buildSettings da sistemare")
-            pass
