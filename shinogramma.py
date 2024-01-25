@@ -121,18 +121,25 @@ colorlog.basicConfig(
 def setLogLevel() -> None:
     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
     if REQ_SHINOGRAMMA_LOGLEVEL["data"].upper() != currentLevel:
-        getattr(logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower())(
-            f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-        )
-        logger.setLevel(level=REQ_SHINOGRAMMA_LOGLEVEL["data"].upper())
-        currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
-        getattr(logger, currentLevel)(
-            msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-        )
-        for module in MODULES_LOGGERS:
-            logging.getLogger(name=module).setLevel(
-                level=REQ_SHINOGRAMMA_LOGLEVEL["data"].upper()
+        try:
+            getattr(
+                logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower()
+            )(
+                f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
             )
+            logger.setLevel(level=REQ_SHINOGRAMMA_LOGLEVEL["data"].upper())
+            currentLevel = logging.getLevelName(
+                level=logger.getEffectiveLevel()
+            ).lower()
+            getattr(logger, currentLevel)(
+                msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+            )
+            for module in MODULES_LOGGERS:
+                logging.getLogger(name=module).setLevel(
+                    level=REQ_SHINOGRAMMA_LOGLEVEL["data"].upper()
+                )
+        except Exception as e:
+            logger.error(msg=f"Error setting LogLevel: {e}")
 
 
 setLogLevel()
@@ -197,129 +204,134 @@ def send_action(action):
 @restricted
 @send_action(action=constants.ChatAction.TYPING)
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    desc = "Start this bot"
-    tag = "start"
-    keyboard = []
-    for command in commands:
-        keyboard.append(
-            [InlineKeyboardButton("/" + command["command"], callback_data=None)]
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        desc = "Start this bot"
+        tag = "start"
+        keyboard = []
+        for command in commands:
+            keyboard.append(
+                [InlineKeyboardButton("/" + command["command"], callback_data=None)]
+            )
+        reply_markup = ReplyKeyboardMarkup(
+            keyboard=keyboard,
+            resize_keyboard=True,
+            one_time_keyboard=True,
+            input_field_placeholder="choose the command",
         )
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard=keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=True,
-        input_field_placeholder="choose the command",
-    )
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A",
-        reply_markup=reply_markup,
-    )
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A",
+            reply_markup=reply_markup,
+        )
 
 
 @restricted
 @send_action(action=constants.ChatAction.TYPING)
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    logger.info(msg=f"test logger with chat_id {chat_id}")
-    desc = "Where you are"
-    tag = "help"
-    help_text = "Available commands are:\n"
-    keyboard = []
-    for command in commands:
-        help_text += f'{command["desc"]}\n'
-        keyboard.append(
-            [InlineKeyboardButton("/" + command["command"], callback_data=None)]
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        logger.info(msg=f"test logger with chat_id {chat_id}")
+        desc = "Where you are"
+        tag = "help"
+        help_text = "Available commands are:\n"
+        keyboard = []
+        for command in commands:
+            help_text += f'{command["desc"]}\n'
+            keyboard.append(
+                [InlineKeyboardButton("/" + command["command"], callback_data=None)]
+            )
+        reply_markup = ReplyKeyboardMarkup(
+            keyboard=keyboard,
+            resize_keyboard=True,
+            one_time_keyboard=True,
+            input_field_placeholder="choose the command",
         )
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard=keyboard,
-        resize_keyboard=True,
-        one_time_keyboard=True,
-        input_field_placeholder="choose the command",
-    )
-    await context.bot.send_message(
-        chat_id=chat_id, text=help_text, reply_markup=reply_markup
-    )
+        await context.bot.send_message(
+            chat_id=chat_id, text=help_text, reply_markup=reply_markup
+        )
 
 
 @restricted
 @send_action(action=constants.ChatAction.TYPING)
 async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    desc = "List all states"
-    tag = "states"
-    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}"
-    data = await queryUrl(context=chat_id, chat_id=context, url=url)
-    if data:
-        data = data.json()
-        states = []
-        for i in data["presets"]:
-            states.append(i["name"])
-        if states:
-            buttons = []
-            for state in states:
-                buttons.append(
-                    [InlineKeyboardButton(text=state, callback_data=tag + ";;" + state)]
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        desc = "List all states"
+        tag = "states"
+        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}"
+        data = await queryUrl(url=url)
+        if data:
+            data = data.json()
+            states = []
+            for i in data["presets"]:
+                states.append(i["name"])
+            if states:
+                buttons = []
+                for state in states:
+                    buttons.append(
+                        [InlineKeyboardButton(text=state, callback_data=tag + ";;" + state)]
+                    )
+                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text="Select one state to activate:",
+                    reply_markup=reply_markup,
                 )
-            reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="Select one state to activate:",
-                reply_markup=reply_markup,
-            )
-        else:
-            print("No states found \u26A0\ufe0f")
-            await context.bot.send_message(
-                chat_id=chat_id, text="No states found \u26A0\ufe0f"
-            )
+            else:
+                print("No states found \u26A0\ufe0f")
+                await context.bot.send_message(
+                    chat_id=chat_id, text="No states found \u26A0\ufe0f"
+                )
 
 
 @restricted
 @send_action(action=constants.ChatAction.TYPING)
 async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    desc = "List all monitors"
-    tag = "monitors"
-    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitor/{REQ_SHINOBI_GROUP_KEY['data']}"
-    data = await queryUrl(context=chat_id, chat_id=context, url=url)
-    if data:
-        data = data.json()
-        monitors = []
-        for i in data:
-            monitors.append({"name": i["name"], "id": i["mid"]})
-        if monitors:
-            buttons = []
-            for monitor in monitors:
-                buttons.append(
-                    [
-                        InlineKeyboardButton(
-                            text=monitor["name"],
-                            callback_data=tag
-                            + ";;"
-                            + monitor["id"]
-                            + ";;"
-                            + monitor["name"],
-                        )
-                    ]
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        desc = "List all monitors"
+        tag = "monitors"
+        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitor/{REQ_SHINOBI_GROUP_KEY['data']}"
+        data = await queryUrl(url=url)
+        if data:
+            data = data.json()
+            monitors = []
+            for i in data:
+                monitors.append({"name": i["name"], "id": i["mid"]})
+            if monitors:
+                buttons = []
+                for monitor in monitors:
+                    buttons.append(
+                        [
+                            InlineKeyboardButton(
+                                text=monitor["name"],
+                                callback_data=tag
+                                + ";;"
+                                + monitor["id"]
+                                + ";;"
+                                + monitor["name"],
+                            )
+                        ]
+                    )
+                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                await context.bot.send_message(
+                    chat_id=chat_id, text="Select one monitor:", reply_markup=reply_markup
                 )
-            reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-            await context.bot.send_message(
-                chat_id=chat_id, text="Select one monitor:", reply_markup=reply_markup
-            )
-        else:
-            print("No monitors found \u26A0\ufe0f")
-            await context.bot.send_message(
-                chat_id=chat_id, text="No monitors found \u26A0\ufe0f"
-            )
+            else:
+                print("No monitors found \u26A0\ufe0f")
+                await context.bot.send_message(
+                    chat_id=chat_id, text="No monitors found \u26A0\ufe0f"
+                )
 
 
 @restricted
 @send_action(action=constants.ChatAction.TYPING)
 async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    desc = "Edit shinogramma settings"
-    tag = "settings"
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        desc = "Edit shinogramma settings"
+        tag = "settings"
 
 
 # End Telegram/Bot commands definition:
@@ -329,79 +341,105 @@ async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def monitors_subcommand(
     update: Update, context: ContextTypes.DEFAULT_TYPE, mid, name
 ):
-    chat_id = update.effective_chat.id
-    tag = "submonitors"
-    choices = ["snapshot", "stream", "videos", "map", "configure"]
-    buttons = []
-    for choice in choices:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=choice, callback_data=tag + ";;" + choice + ";;" + mid
-                )
-            ]
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        tag = "submonitors"
+        choices = ["snapshot", "stream", "videos", "map", "configure"]
+        buttons = []
+        for choice in choices:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=choice, callback_data=tag + ";;" + choice + ";;" + mid
+                    )
+                ]
+            )
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"<b>{name}</b>\nWhat do you want from this monitor?",
+            reply_markup=reply_markup,
+            parse_mode="HTML",
         )
-    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"<b>{name}</b>\nWhat do you want from this monitor?",
-        reply_markup=reply_markup,
-        parse_mode="HTML",
-    )
 
 
 @send_action(action=constants.ChatAction.TYPING)
 async def callback_handler(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    query = update.callback_query
-    inputdata = query.data.split(";;")
-    tag = inputdata[0]
-    if tag == "states":
-        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{inputdata[1]}"
-        data = await queryUrl(context=chat_id, chat_id=context, url=url)
-        if data:
-            await query.answer(text="OK, done \U0001F44D")
-    elif tag == "monitors":
-        await monitors_subcommand(
-            update=update, context=context, mid=inputdata[1], name=inputdata[2]
-        )
-    elif tag == "submonitors":
-        mid = inputdata[2]
-        thisMonitor = Monitor(
-            update=update
-            context=context,
-            chatId=chat_id,
-            baseUrl=REQ_SHINOBI_BASE_URL["data"],
-            port=
-            mid=mid,
-        )
-        if inputdata[1] == "snapshot":
-            if not await thisMonitor.getsnapshot():
-                key = "snap"
-                value = "1"
-                desc = "Jpeg API for snapshots"
-                # to do: start config procedure to enable snap...
-        elif inputdata[1] == "stream":
-            stream = await thisMonitor.getstream()
-        elif inputdata[1] == "videos":
-            videos = await thisMonitor.getvideo()
-        elif inputdata[1] == "configure":
-            context.user_data["from"] = inputdata[1]
-            context.user_data["monitor"] = thisMonitor
-            await update.effective_message.reply_text(
-                "Which parameter do you want to change?"
+    if update.effective_chat:
+        chat_id = update.effective_chat.id
+        query = update.callback_query
+        inputdata = query.data.split(";;")
+        tag = inputdata[0]
+        if tag == "states":
+            url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{inputdata[1]}"
+            data = await queryUrl(url=url)
+            if data:
+                await query.answer(text="OK, done \U0001F44D")
+        elif tag == "monitors":
+            await monitors_subcommand(
+                update=update, context=context, mid=inputdata[1], name=inputdata[2]
             )
-        elif inputdata[1] == "map":
-            geolocation = await thisMonitor.getmap()
-    elif tag == "video":
-        mid = inputdata[2]
-        thisMonitor = Monitor(context=context, chat_id=chat_id, mid=mid)
-        if len(inputdata) == 3:
-            videolist = await thisMonitor.getvideo(index=inputdata[1])
-        if len(inputdata) == 4:
-            videoOp = await thisMonitor.getvideo(
-                index=inputdata[1], operation=inputdata[3]
+        elif tag == "submonitors":
+            mid = inputdata[2]
+            thisMonitor = Monitor(
+                update=update,
+                context=context,
+                chatId=chat_id,
+                baseUrl=REQ_SHINOBI_BASE_URL["data"],
+                port=REQ_SHINOBI_PORT["data"],
+                apiKey=REQ_SHINOBI_API_KEY["data"],
+                groupKey=REQ_SHINOBI_GROUP_KEY["data"],
+                mid=mid,
             )
+            if inputdata[1] == "snapshot":
+                if not await thisMonitor.getsnapshot():
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Error something went wrong, requesting snapshot \u26A0\ufe0f",
+                    )
+                    key = "snap"
+                    value = "1"
+                    desc = "Jpeg API for snapshots"
+                    # to do: start config procedure to enable snap...
+            elif inputdata[1] == "stream":
+                if not await thisMonitor.getStream():
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Error something went wrong, requesting stream \u26A0\ufe0f",
+                    )
+            elif inputdata[1] == "videos":
+                if not await thisMonitor.getvideo():
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Error something went wrong, requesting videos \u26A0\ufe0f",
+                    )
+            elif inputdata[1] == "configure":
+                context.user_data["from"] = inputdata[1]
+                context.user_data["monitor"] = thisMonitor
+                await update.effective_message.reply_text(
+                    text="Which parameter do you want to change?"
+                )
+            elif inputdata[1] == "map":
+                if not await thisMonitor.getmap():
+                    pass
+        elif tag == "video":
+            mid = inputdata[2]
+            thisMonitor = Monitor(
+                update=update,
+                context=context,
+                chatId=chat_id,
+                baseUrl=REQ_SHINOBI_BASE_URL["data"],
+                port=REQ_SHINOBI_PORT["data"],
+                apiKey=REQ_SHINOBI_API_KEY["data"],
+                groupKey=REQ_SHINOBI_GROUP_KEY["data"],
+                mid=mid,
+            )
+            if len(inputdata) == 3:
+                videolist = await thisMonitor.getvideo(index=inputdata[1])
+            if len(inputdata) == 4:
+                videoOp = await thisMonitor.getvideo(
+                    index=inputdata[1], operation=inputdata[3]
+                )
 
 
 async def handleTextConfigure(update: Update, context: CallbackContext):
@@ -427,13 +465,15 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
 
 if __name__ == "__main__":
     if not buildSettings(data=settings.iniRead()):
-        print("errore in buildSettings da sistemare")
-        # do something
+        logger.info(
+            msg="Error building and or retrieving settings from config file, exiting..."
+        )
+        raise SystemExit
+    setLogLevel()
     if not len(TELEGRAM_CHAT_ID) > 0:
         logger.warning(
             msg="Chat_id not defined, this could be very dangerous, continuing..."
         )
-    setLogLevel()
     frame = inspect.currentframe()
     command_functions = [
         obj

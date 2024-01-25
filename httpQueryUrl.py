@@ -1,13 +1,18 @@
 import logging
+from typing import Any
 import requests
 import json  # for debug only, can be removed when all work fine...
 
 logger = logging.getLogger(name=__name__)
 
-async def queryUrl(context, chat_id, url, method="get", data=None, debug=False):
+
+async def queryUrl(
+    url, method="get", data=None, debug=False
+) -> None | requests.Response:
     methods = ["get", "post", "put", "delete"]
     if method in methods:
         http_method = getattr(requests, method)
+        response: requests.Response
         try:
             if method == ("get" or "delete"):
                 response = http_method(url)
@@ -17,9 +22,8 @@ async def queryUrl(context, chat_id, url, method="get", data=None, debug=False):
                 logger.info(
                     msg=f"Error {response.status_code} something went wrong, request error."
                 )
-                return False
             else:
-                logger.info(msg="OK, request done.")
+                logger.debug(msg="OK, request done.")
                 if debug:
                     logger.info(
                         msg=f"\nRequest method: {method}\nType of data: "
@@ -27,17 +31,12 @@ async def queryUrl(context, chat_id, url, method="get", data=None, debug=False):
                     )
                 return response
         except requests.exceptions.RequestException as e:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="Error something went wrong, request error-->connection \u26A0\ufe0f",
-            )
             logger.critical(
                 msg=f"Error something went wrong, request-->connection error: \n{e}"
             )
-            return False
     else:
-        print(f"Invalid method: {method}")
-        return False
+        logger.error(msg=f"Invalid method: {method}")
+    return None
 
 
 if __name__ == "__main__":

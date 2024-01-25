@@ -1,4 +1,5 @@
 import logging
+
 from httpQueryUrl import queryUrl
 import m3u8  # type: ignore
 import humanize
@@ -6,15 +7,17 @@ import json
 import time
 import io
 from datetime import datetime
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, error
 
 logger = logger = logging.getLogger(name=__name__)
 
 
 class Monitor:
-    def __init__(self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid):
-        self.update = update
-        self.context = context
+    def __init__(
+        self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid
+    ) -> None:
+        self.UPDATE = update
+        self.CONTEXT = context
         self.CHAT_ID = chatId
         self.BASEURL = baseUrl
         self.PORT = port
@@ -24,233 +27,264 @@ class Monitor:
         self.url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/monitor/{self.GROUP_KEY}/{self.MID}"
         self.query = update.callback_query
 
-    async def getsnapshot(self):
-        data = await queryUrl(context=self.context, chat_id=self.CHAT_ID, url=self.url)
+    async def getsnapshot(self) -> bool:
+        data = await queryUrl(url=self.url)
         if data:
-            data = data.json()
-            if json.loads(data[0]["details"])["snap"] == "1":
+            dataInJson = data.json()
+            if json.loads(s=dataInJson[0]["details"])["snap"] == "1":
                 await self.query.answer("Cooking your snapshot...\U0001F373")
-                baseurl = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/jpeg/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}/s.jpg"
-                avoidcacheurl = str(object=int(time.time()))
-                url = baseurl + "?" + avoidcacheurl
-                await self.context.bot.send_photo(chat_id=self.chat_id, photo=url)
-                return True
+                baseurl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/jpeg/{self.GROUP_KEY}/{self.MID}/s.jpg"
+                avoidCacheUrl = str(object=int(time.time()))
+                snapshotUrl = baseurl + "?" + avoidCacheUrl
+                if await self.CONTEXT.bot.send_photo(
+                    chat_id=self.CHAT_ID, photo=snapshotUrl
+                ):
+                    logger.debug(msg="Ok, snaphot sended...")
+                    return True
             else:
+                logger.info(msg="Jpeg API not active on this monitor")
                 await self.query.answer(
                     text="Jpeg API not active on this monitor \u26A0\ufe0f",
                     show_alert=True,
                 )
-                logger.info(msg="Jpeg API not active on this monitor")
                 return False
+        else:
+            logger.error(msg="Error something went wrong requesting snapshot")
+        return False
 
-    async def getstream(self):
-        data = await queryUrl(context=self.context, chat_id=self.chat_id, url=self.url)
+    async def getStream(self) -> bool:
+        data = await queryUrl(url=self.url)
         if data:
-            data = data.json()
-            streamTypes = ["hls", "mjpeg", "flv", "mp4"]
-            streamType = json.loads(data[0]["details"])["stream_type"]
-            if streamType in streamTypes:
-                if streamType == "hls":
-                    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/hls/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}/s.m3u8"
-                elif streamType == "mjpeg":
-                    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/mjpeg/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}"
-                elif streamType == "flv":
-                    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/flv/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}/s.flv"
-                elif streamType == "mp4":
-                    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/mp4/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}/s.mp4"
-                playlist = m3u8.M3U8()
-                playlist.add_playlist(playlist=url)
-                vfile = io.StringIO(initial_value=playlist.dumps())
-                thumbnail_file = open(file="images/shinthumbnail.jpeg", mode="rb")
-                avoidcacheurl = str(object=int(time.time()))
-                await self.context.bot.send_document(
-                    chat_id=self.chat_id,
-                    document=vfile,
-                    filename=f"stream" + avoidcacheurl + ".m3u8",
-                    protect_content=False,
-                    thumbnail=thumbnail_file,
-                )
-                vfile.close()
-                buttons = [[InlineKeyboardButton(text="link", url=url)]]
+            dataInJson = data.json()
+            """Defining Shinobi's streaming capabilities"""
+            streamTypes: dict[str, str] = {
+                "hls": "/s.m3u8",
+                "mjpeg": "",
+                "flv": "/s.flv",
+                "mp4": "/s.mp4",
+            }
+            streamType = json.loads(s=dataInJson[0]["details"])["stream_type"]
+            if streamType in streamTypes.keys():
+                streamUrl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/{streamType}/{self.GROUP_KEY}/{self.MID}{streamTypes[streamType]}"
+                pList = m3u8.M3U8()
+                pList.add_playlist(playlist=streamUrl)
+                vFile = io.StringIO(initial_value=pList.dumps())
+                thumbnailFile = open(file="images/shinthumbnail.jpeg", mode="rb")
+                avoidCacheUrl = str(object=int(time.time()))
+                buttons = [[InlineKeyboardButton(text="link", url=streamUrl)]]
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                await self.update.effective_message.reply_text(
-                    "With IOS use the link below, otherwise above file will be fine",
+                await self.CONTEXT.bot.send_document(
+                    caption="With IOS use the link below, otherwise above file will be fine",
+                    chat_id=self.CHAT_ID,
+                    document=vFile,
+                    filename=f"stream" + avoidCacheUrl + ".m3u8",
+                    protect_content=False,
+                    thumbnail=thumbnailFile,
                     reply_markup=reply_markup,
                 )
+                vFile.close()
+                return True
             else:
                 logger.info(
                     msg="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg..."
                 )
-                await self.context.bot.send_message(
-                    chat_id=self.chat_id,
+                await self.CONTEXT.bot.send_message(
+                    chat_id=self.CHAT_ID,
                     text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f",
                 )
+                return False
+        else:
+            logger.error(msg="Error something went wrong requesting stream")
+        return False
 
-    async def getvideo(self, index=None, operation=None, more=False):
+    async def getvideo(self, index=None, operation=None, more=False) -> bool:
         tag = "video"
-        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/videos/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}"
-        method = "get"
-        data = None
+        url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/videos/{self.GROUP_KEY}/{self.MID}"
         debug = True
         videoList = await queryUrl(
-            context=self.context,
-            chat_id=self.chat_id,
             url=url,
-            method=method,
-            data=data,
             debug=debug,
         )
         if videoList:
-            if index == None:
-                videoList = videoList.json().get("videos")
-                buttons = []
-                for index, video in enumerate((videoList)):
+            videoListInJson = videoList.json().get("videos")
+            if len(videoListInJson) > 0:
+                if index == None:
+                    buttons: list = []
+                    for index, video in enumerate((videoListInJson)):
+                        start_time = datetime.fromisoformat(video.get("time"))
+                        start = humanize.naturaltime(value=start_time)
+                        CallBack = f"{tag};;{index};;{self.MID}"
+                        if video["objects"]:
+                            objects = video["objects"]
+                            videoText = f"{start} -> {objects}"
+                        else:
+                            videoText = f"{start}"
+                        if video["status"] == 1:
+                            videoText = videoText.upper()
+                        buttons.insert(
+                            0,
+                            [
+                                InlineKeyboardButton(
+                                    text=videoText, callback_data=CallBack
+                                )
+                            ],
+                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons[-20:])
+                    await self.CONTEXT.bot.send_message(
+                        chat_id=self.CHAT_ID,
+                        text="Select one video from this limited (20) list <b>(in uppercase are new)</b>.",
+                        reply_markup=reply_markup,
+                        parse_mode="HTML",
+                    )
+                    return True
+                elif operation == None:
+                    index = int(index)
+                    number = len(videoList.json().get("videos"))
+                    video = videoListInJson[index]
                     start_time = datetime.fromisoformat(video.get("time"))
-                    start = humanize.naturaltime(value=start_time)
-                    if video["objects"]:
-                        objects = video["objects"]
-                    if video["status"] == 1:
-                        start = start.upper()
-                        objects = objects.upper()
-                    CallBack = f"{tag};;{index};;{self.mid}"
-                    buttons.insert(
-                        0,
+                    end_time = datetime.fromisoformat(video.get("end"))
+                    duration = humanize.naturaldelta(value=end_time - start_time)
+                    time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+                    size = humanize.naturalsize(value=video.get("size"))
+                    fileName = video.get("filename")
+                    videoUrl = url + "/" + fileName
+                    setRead = f"{videoUrl}/status/2"
+                    buttons = [
                         [
                             InlineKeyboardButton(
-                                text=f"{start} -> {objects}", callback_data=CallBack
-                            )
-                        ],
-                    )
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons[-20:])
-                await self.context.bot.send_message(
-                    chat_id=self.chat_id,
-                    text="Select one video from this limited (20) list <b>(in uppercase are new)</b>.",
-                    reply_markup=reply_markup,
-                    parse_mode="HTML",
-                )
-            elif operation == None:
-                index = int(index)
-                number = len(videoList.json().get("videos"))
-                video = videoList.json().get("videos")[index]
-                start_time = datetime.fromisoformat(video.get("time"))
-                end_time = datetime.fromisoformat(video.get("end"))
-                duration = humanize.naturaldelta(value=end_time - start_time)
-                time = start_time.strftime(format="%Y-%m-%d %H:%M:%S")
-                size = humanize.naturalsize(value=video.get("size"))
-                fileName = video.get("filename")
-                videoUrl = url + "/" + fileName
-                setRead = f"{videoUrl}/status/2"
-                buttons = [
-                    [
-                        InlineKeyboardButton(
-                            text="set unread",
-                            callback_data=f"{tag};;{index};;{self.mid};;unread",
-                        ),
-                        InlineKeyboardButton(
-                            text="delete",
-                            callback_data=f"{tag};;{index};;{self.mid};;delete",
-                        ),
+                                text="set unread",
+                                callback_data=f"{tag};;{index};;{self.MID};;unread",
+                            ),
+                            InlineKeyboardButton(
+                                text="delete",
+                                callback_data=f"{tag};;{index};;{self.MID};;delete",
+                            ),
+                        ]
                     ]
-                ]
-                if index > 0:
-                    buttons[0].insert(
-                        0,
-                        InlineKeyboardButton(
-                            text="prev", callback_data=f"{tag};;{index-1};;{self.mid}"
-                        ),
-                    )
-                if index < number - 1:
-                    buttons[0].append(
-                        InlineKeyboardButton(
-                            text="next", callback_data=f"{tag};;{index+1};;{self.mid}"
+                    if index > 0:
+                        buttons[0].insert(
+                            0,
+                            InlineKeyboardButton(
+                                text="prev",
+                                callback_data=f"{tag};;{index-1};;{self.MID}",
+                            ),
                         )
-                    )
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                if video["status"] == 1:
-                    temp = await queryUrl(
-                        context=self.context,
-                        chat_id=self.chat_id,
-                        url=setRead,
-                        method=method,
-                        data=data,
-                        debug=debug,
-                    )
-                    if temp:
-                        logger.info(msg=f"Video {self.mid}->{fileName} set as read")
-                        await self.query.answer("Video set as read.\U0001F373")
-                try:
-                    await self.context.bot.send_video(
-                        chat_id=self.chat_id,
-                        video=videoUrl,
-                        supports_streaming=True,
-                        caption=f"<b>{index+1}/{number} - {time} - {duration} - {size}</b>",
-                        reply_markup=reply_markup,
-                        parse_mode="HTML",
-                    )
-                except error.TelegramError as e:
-                    await self.context.bot.send_message(
-                        chat_id=self.chat_id,
-                        text=f"<b>{index+1}/{number} - {time} - {duration} - {size}\n{videoUrl}</b>",
-                        disable_web_page_preview=False,
-                        reply_markup=reply_markup,
-                        parse_mode="HTML",
-                    )
-                    logger.error(
-                        msg=f"Error sending video, maybe exceed 20Mb, sending link...: \n{e}"
-                    )
+                    if index < number - 1:
+                        buttons[0].append(
+                            InlineKeyboardButton(
+                                text="next",
+                                callback_data=f"{tag};;{index+1};;{self.MID}",
+                            )
+                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                    if video["status"] == 1:
+                        response = await queryUrl(url=setRead, debug=debug)
+                        if response:
+                            if response.json()["ok"]:
+                                logger.info(
+                                    msg=f"Video {self.MID}->{fileName} set as read"
+                                )
+                                await self.query.answer("Video set as read.\U0001F373")
+                            else:
+                                logger.error(
+                                    msg="Error something went wrong doing things on video"
+                                )
+                                await self.query.answer(
+                                    "Error something went wrong doing things on video... \u26A0\ufe0f"
+                                )
+                        else:
+                            logger.error(msg="Error something went wrong requesting set read status")
+                    try:
+                        await self.CONTEXT.bot.send_video(
+                            chat_id=self.CHAT_ID,
+                            video=videoUrl,
+                            supports_streaming=True,
+                            caption=f"<b>{index+1}/{number} - {time} - {duration} - {size}</b>",
+                            reply_markup=reply_markup,
+                            parse_mode="HTML",
+                        )
+                        return True
+                    except error.TelegramError as e:
+                        await self.CONTEXT.bot.send_message(
+                            chat_id=self.CHAT_ID,
+                            text=f"<b>{index+1}/{number} - {time} - {duration} - {size}\n{videoUrl}</b>",
+                            disable_web_page_preview=False,
+                            reply_markup=reply_markup,
+                            parse_mode="HTML",
+                        )
+                        logger.debug(
+                            msg=f"Error sending video, maybe exceed 20Mb, sending link...: \n{e}"
+                        )
+                else:
+                    index = int(index)
+                    video = videoListInJson[index]
+                    fileName = video.get("filename")
+                    videoUrl = url + "/" + fileName
+                    setUnread = f"{videoUrl}/status/1"
+                    delete = f"{videoUrl}/delete"
+                    if operation == "unread":
+                        url = setUnread
+                        caption = "set as unread"
+                    else:
+                        url = delete
+                        caption = "has been deleted"
+                    response = await queryUrl(url=url, debug=debug)
+                    if response:
+                        if response.json()["ok"]:
+                            logger.info(msg=f"Video {self.MID}->{fileName} {caption}")
+                            await self.query.answer(f"Video {caption}.\U0001F373")
+                            return True
+                        else:
+                            logger.error(
+                                msg="Error something went wrong doing things on video"
+                            )
+                            await self.query.answer(
+                                "Error something went wrong doing things on video... \u26A0\ufe0f"
+                            )
+                    else:
+                        logger.error(msg="Error something went wrong requesting videos")
             else:
-                index = int(index)
-                video = videoList.json().get("videos")[index]
-                fileName = video.get("filename")
-                videoUrl = url + "/" + fileName
-                setUnread = f"{videoUrl}/status/1"
-                delete = f"{videoUrl}/delete"
-                if operation == "unread":
-                    url = setUnread
-                    caption = "set as unread"
-                elif operation == "delete":
-                    url = delete
-                    caption = "has been deleted"
-                temp = await queryUrl(
-                    context=self.context,
-                    chat_id=self.chat_id,
-                    url=url,
-                    method=method,
-                    data=data,
-                    debug=debug,
+                logger.info(msg="No videos found for this monitor...\u26A0\ufe0f")
+                await self.query.answer(
+                    "No videos found for this monitor...\u26A0\ufe0f"
                 )
-                if temp:
-                    logger.info(msg=f"Video {self.mid}->{fileName} {caption}")
-                    await self.query.answer(f"Video {caption}.\U0001F373")
+                return True
         else:
-            await self.query.answer("No videos found for this monitor...\u26A0\ufe0f")
+            logger.error(msg="Error something went wrong requesting videos")
+        return False
 
     async def getmap(self):
-        data = await queryUrl(context=self.context, chat_id=self.chat_id, url=self.url)
+        data = await queryUrl(url=self.url)
         if data:
-            data = json.loads(data.json()[0]["details"]).get("geolocation").split(",")
-            latitude = data[0]
-            longitude = data[1]
+            dataInJson = (
+                json.loads(data.json()[0]["details"]).get("geolocation").split(",")
+            )
+            latitude = dataInJson[0]
+            longitude = dataInJson[1]
             if latitude == "49.2578298" and longitude == "-123.2634732":
                 await self.query.answer(
                     text="No map data for this monitor...\u26A0\ufe0f", show_alert=True
                 )
             print(type(data), data)
+        else:
+            await self.CONTEXT.bot.send_message(
+                chat_id=self.CHAT_ID,
+                text="Error something went wrong, request error-->connection \u26A0\ufe0f",
+            )
+            return False
 
     async def configure(self, key, value, desc=None):
-        data = await queryUrl(context=self.context, chat_id=self.chat_id, url=self.url)
+        data = await queryUrl(url=self.url)
         if data:
-            data = data.json()[0]
-            details = json.loads(s=data["details"])
+            dataInJson = data.json()[0]
+            details = json.loads(s=dataInJson["details"])
             if key in details.keys():
                 details[key] = value
-                data["details"] = details
-                endpoint = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/configureMonitor/{REQ_SHINOBI_GROUP_KEY['data']}/{self.mid}"
+                dataInJson["details"] = details
+                endpoint = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/configureMonitor/{self.GROUP_KEY}/{self.MID}"
                 method = "post"
                 debug = True
                 await queryUrl(
-                    context=self.chat_id,
-                    chat_id=self.context,
                     url=endpoint,
                     method=method,
                     data=data,
@@ -258,7 +292,13 @@ class Monitor:
                 )
             else:
                 logger.info(msg="unknown parameter")
-                await self.context.bot.send_message(
-                    chat_id=self.chat_id, text="Unknown parameter... \u26A0\ufe0f"
+                await self.CONTEXT.bot.send_message(
+                    chat_id=self.CHAT_ID, text="Unknown parameter... \u26A0\ufe0f"
                 )
                 return False
+        else:
+            await self.CONTEXT.bot.send_message(
+                chat_id=self.CHAT_ID,
+                text="Error something went wrong, request error-->connection \u26A0\ufe0f",
+            )
+            return False

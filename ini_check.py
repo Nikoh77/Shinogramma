@@ -73,10 +73,16 @@ class IniSettings:
                         value = input(f"Please insert the {section} {option['name']}: ")
                     else:
                         value = option["data"]
-                        if self.__verifyTypeOf(value=value, typeOf=option["typeOf"]):
-                            self.__config.set(section=section, option=option["name"], value=value)
+                        if self.__verifyTypeOf(
+                            value=value, typeOf=option["typeOf"], name=option["name"]
+                        ):
+                            self.__config.set(
+                                section=section, option=option["name"], value=value
+                            )
                         else:
-                            logger.error(msg="TypeOf check failed")
+                            logger.error(
+                                msg=f"TypeOf check failed in {section}->{option['name']}->{value}"
+                            )
                             return False
         with open(file=self.__configFile, mode="w") as configfile:
             self.__config.write(fp=configfile)
@@ -97,13 +103,15 @@ class IniSettings:
                     for optionInNeeded in self.__neededSettings[section]:
                         if optionInNeeded["name"] == option:
                             convertedValue = self.__verifyTypeOf(
-                                value=value, typeOf=optionInNeeded["typeOf"]
+                                value=value,
+                                typeOf=optionInNeeded["typeOf"],
+                                name=optionInNeeded["name"],
                             )
                             if convertedValue:
                                 data[option] = convertedValue
                             else:
                                 logger.error(
-                                    msg=f"TypeOf check failed in {section} {option}"
+                                    msg=f"TypeOf check failed in {section}->{option}->{value}"
                                 )
                                 return False
                         else:
@@ -113,14 +121,16 @@ class IniSettings:
             return self.__buildSettings(settings=settings)
         return False
 
-    def __verifyTypeOf(self, value: str, typeOf: type) -> bool | str:
+    def __verifyTypeOf(self, value: str, typeOf: type, name: str) -> bool | str:
         """Verify and optionally convert the type of a value."""
-        # TODO aggiungere controllo per i livelli del loglevel
         try:
             if typeOf == Url:
                 if self.__verifyUrl(url=value):
                     return value
             else:
+                if name == "loglevel":
+                    if not self.__verifyLogLevel(loglevel=value):
+                        return False
                 convertedValue = typeOf(value)
                 return convertedValue
             return False
@@ -134,6 +144,12 @@ class IniSettings:
             return all([result.scheme, result.netloc])
         except ValueError:
             return False
+
+    def __verifyLogLevel(self, loglevel) -> bool:
+        all_levels = [logging.getLevelName(level=level) for level in range(0, 101)]
+        if loglevel.upper() in all_levels:
+            return True
+        return False
 
     def __buildSettings(self, settings: dict) -> tuple:
         """
@@ -174,6 +190,7 @@ class IniSettings:
                 logger.info(msg=f"Assigning global variable {variable_name}...")
                 varsDict[variable_name] = sub_value
         return tuple(varsDict.items())
+
 
 if __name__ == "__main__":
     raise SystemExit
