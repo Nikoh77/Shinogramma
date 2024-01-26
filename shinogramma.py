@@ -27,7 +27,7 @@ import logging
 import inspect
 import re
 from httpQueryUrl import queryUrl
-from ini_check import IniSettings, Url
+from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
 
@@ -39,7 +39,7 @@ this application and avoid seeing the debug of all modules in the tree.
 If you want to see the logs of other modules at the "REQ_SHINOGRAMMA_LOGLEVEL" level add
 them to the list below
 """
-MODULES_LOGGERS: list[str] = ["__main__", "httpQueryUrl", "ini_check", "monitor"]
+MODULES_LOGGERS: list[str] = ["__main__", "httpQueryUrl", "settings", "monitor"]
 CONFIG_FILE: Path = Path("config.ini")
 TELEGRAM_CHAT_ID: list[int] = []
 """
@@ -270,7 +270,11 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 buttons = []
                 for state in states:
                     buttons.append(
-                        [InlineKeyboardButton(text=state, callback_data=tag + ";;" + state)]
+                        [
+                            InlineKeyboardButton(
+                                text=state, callback_data=tag + ";;" + state
+                            )
+                        ]
                     )
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
                 await context.bot.send_message(
@@ -316,7 +320,9 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
                 await context.bot.send_message(
-                    chat_id=chat_id, text="Select one monitor:", reply_markup=reply_markup
+                    chat_id=chat_id,
+                    text="Select one monitor:",
+                    reply_markup=reply_markup,
                 )
             else:
                 print("No monitors found \u26A0\ufe0f")
@@ -392,7 +398,7 @@ async def callback_handler(update: Update, context: CallbackContext):
                 mid=mid,
             )
             if inputdata[1] == "snapshot":
-                if not await thisMonitor.getsnapshot():
+                if not await thisMonitor.getSnapshot():
                     await context.bot.send_message(
                         chat_id=chat_id,
                         text="Error something went wrong, requesting snapshot \u26A0\ufe0f",
@@ -408,7 +414,7 @@ async def callback_handler(update: Update, context: CallbackContext):
                         text="Error something went wrong, requesting stream \u26A0\ufe0f",
                     )
             elif inputdata[1] == "videos":
-                if not await thisMonitor.getvideo():
+                if not await thisMonitor.getVideo():
                     await context.bot.send_message(
                         chat_id=chat_id,
                         text="Error something went wrong, requesting videos \u26A0\ufe0f",
@@ -435,11 +441,11 @@ async def callback_handler(update: Update, context: CallbackContext):
                 mid=mid,
             )
             if len(inputdata) == 3:
-                videolist = await thisMonitor.getvideo(index=inputdata[1])
+                index = int(inputdata[1])
+                await thisMonitor.getVideo(index=index)
             if len(inputdata) == 4:
-                videoOp = await thisMonitor.getvideo(
-                    index=inputdata[1], operation=inputdata[3]
-                )
+                index = int(inputdata[1])
+                await thisMonitor.getVideo(index=index, operation=inputdata[3])
 
 
 async def handleTextConfigure(update: Update, context: CallbackContext):

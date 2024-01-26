@@ -62,7 +62,7 @@ class IniSettings:
         for section in self.__neededSettings:
             if not self.__config.has_section(section=section):
                 logger.info(
-                    msg=f"Needed section {section} does not existin your INI file, creating..."
+                    msg=f"Needed section {section} does not exist in your INI file, creating..."
                 )
                 self.__config.add_section(section=section)
             for option in self.__neededSettings[section]:
@@ -72,6 +72,7 @@ class IniSettings:
                     if option["data"] is None:
                         value = input(f"Please insert the {section} {option['name']}: ")
                     else:
+                        logger.info(msg=f"{section} {option['name']} not found, assuming default...")
                         value = option["data"]
                         if self.__verifyTypeOf(
                             value=value, typeOf=option["typeOf"], name=option["name"]
