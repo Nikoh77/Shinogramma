@@ -1,5 +1,5 @@
-colorlog==6.8.0
-humanize==4.9.0
-m3u8==4.0.0
-python-telegram-bot==20.7
-Requests==2.31.0
+colorlog
+humanize
+m3u8
+python-telegram-bot
+Requests
