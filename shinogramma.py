@@ -471,7 +471,7 @@ async def handleTextConfigure(update: Update, context: CallbackContext):
 
 if __name__ == "__main__":
     if not buildSettings(data=settings.iniRead()):
-        logger.info(
+        logger.critical(
             msg="Error building and or retrieving settings from config file, exiting..."
         )
         raise SystemExit
@@ -481,6 +481,7 @@ if __name__ == "__main__":
             msg="Chat_id not defined, this could be very dangerous, continuing..."
         )
     frame = inspect.currentframe()
+    assert frame is not None
     command_functions = [
         obj
         for name, obj in frame.f_globals.items()
@@ -493,7 +494,7 @@ if __name__ == "__main__":
         pattern = r'desc\s*=\s*["\'](.*?)["\']'
         desc = re.search(pattern=pattern, string=code)
         if not desc:
-            logger.critical(
+            logger.warning(
                 msg=f"WARN: {function.__name__} function has no description..."
             )
             break

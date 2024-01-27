@@ -146,7 +146,9 @@ class Monitor:
                         )
                 except error.TelegramError as e:
                     logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-                except Exception:  # if error is not of type error.TelegramError (PythonTelegramBot) raise it
+                except (
+                    Exception
+                ):  # if error is not of type error.TelegramError (PythonTelegramBot) raise it
                     raise
             else:
                 logger.info(msg="No videos found for this monitor...\u26A0\ufe0f")
@@ -186,7 +188,7 @@ class Monitor:
 
     async def videoSecondPass(
         self, videoListInJson: list, index: int, tag: str, url: str, debug: bool
-    ) -> bool:  # TODO
+    ) -> bool:
         number = len(videoListInJson)
         video = videoListInJson[index]
         start_time = datetime.fromisoformat(video.get("time"))
@@ -261,10 +263,11 @@ class Monitor:
             logger.debug(
                 msg=f"Error sending video, maybe exceed 20Mb, sending link...: \n{e}"
             )
+        return False
 
     async def videoThirdPass(
         self, videoListInJson: list, index: int, url: str, operation: str, debug: bool
-    ) -> bool:  # TODO
+    ) -> bool:
         video = videoListInJson[index]
         fileName = video.get("filename")
         videoUrl = url + "/" + fileName
@@ -289,6 +292,7 @@ class Monitor:
                 )
         else:
             logger.error(msg="Error something went wrong requesting videos")
+        return False
 
     async def getMap(self):
         data = await queryUrl(url=self.url)
@@ -310,7 +314,7 @@ class Monitor:
             )
             return False
 
-    async def configure(self, key, value, desc=None):
+    async def configure(self, key, value, desc=None) -> bool:
         data = await queryUrl(url=self.url)
         if data:
             dataInJson = data.json()[0]
@@ -327,15 +331,12 @@ class Monitor:
                     data=data,
                     debug=debug,
                 )
+                return True
             else:
                 logger.info(msg="unknown parameter")
                 await self.CONTEXT.bot.send_message(
                     chat_id=self.CHAT_ID, text="Unknown parameter... \u26A0\ufe0f"
                 )
-                return False
         else:
-            await self.CONTEXT.bot.send_message(
-                chat_id=self.CHAT_ID,
-                text="Error something went wrong, request error-->connection \u26A0\ufe0f",
-            )
-            return False
+            logger.error(msg="Error something went wrong requesting configuration")
+        return False
