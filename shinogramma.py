@@ -176,7 +176,7 @@ def restricted(func):
             return func(update, context, *args, **kwargs)
         chat_id = update.effective_user.id
         if chat_id not in TELEGRAM_CHAT_ID:
-            print("Unauthorized, access denied for {}.".format(chat_id))
+            logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
             return
         return func(update, context, *args, **kwargs)
 
@@ -212,7 +212,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = []
         for command in commands:
             keyboard.append(
-                [InlineKeyboardButton("/" + command["command"], callback_data=None)]
+                [
+                    InlineKeyboardButton(
+                        text="/" + command["command"], callback_data=None
+                    )
+                ]
             )
         reply_markup = ReplyKeyboardMarkup(
             keyboard=keyboard,
@@ -263,9 +267,9 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}"
         data = await queryUrl(url=url)
         if data:
-            data = data.json()
+            dataInJson = data.json()
             states = []
-            for i in data["presets"]:
+            for i in dataInJson["presets"]:
                 states.append(i["name"])
             if states:
                 buttons = []
@@ -300,9 +304,9 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitor/{REQ_SHINOBI_GROUP_KEY['data']}"
         data = await queryUrl(url=url)
         if data:
-            data = data.json()
+            dataInJson = data.json()
             monitors = []
-            for i in data:
+            for i in dataInJson:
                 monitors.append({"name": i["name"], "id": i["mid"]})
             if monitors:
                 buttons = []
@@ -339,6 +343,8 @@ async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         chat_id = update.effective_chat.id
         desc = "Edit shinogramma settings"
         tag = "settings"
+        logger.debug(msg=chat_id)
+
 
 # End Telegram/Bot commands definition:
 
@@ -374,7 +380,7 @@ async def callback_handler(update: Update, context: CallbackContext):
     if update.effective_chat:
         chat_id = update.effective_chat.id
         query = update.callback_query
-        inputdata = query.data.split(";;")
+        inputdata = query.data.split(sep=";;")
         tag = inputdata[0]
         if tag == "states":
             url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{inputdata[1]}"
@@ -426,7 +432,7 @@ async def callback_handler(update: Update, context: CallbackContext):
                     text="Which parameter do you want to change?"
                 )
             elif inputdata[1] == "map":
-                if not await thisMonitor.getmap():
+                if not await thisMonitor.getMap():
                     pass
         elif tag == "video":
             mid = inputdata[2]
@@ -499,6 +505,8 @@ def parseForCommands() -> None:
             fullDesc = "/" + command + " - " + desc
         data = {"func": function, "name": name, "command": command, "desc": fullDesc}
         commands.append(data)
+    commandJustForLog = ", ".join(c["command"] for i, c in enumerate(iterable=commands))
+    logger.debug(msg=f"List of active commands: {commandJustForLog}")
 
 
 def startBot() -> None:
@@ -518,6 +526,8 @@ def startBot() -> None:
     application.add_handlers(handlers=handlers)
     logger.info(msg="ShinogrammaBot Up and running")
     application.run_polling(drop_pending_updates=True)
+    return
+
 
 if __name__ == "__main__":
     if not buildSettings(data=settings.iniRead()):
@@ -532,3 +542,4 @@ if __name__ == "__main__":
         )
     parseForCommands()
     startBot()
+    logger.info(msg="ShinogrammaBot terminated")
