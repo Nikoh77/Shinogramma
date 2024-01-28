@@ -14,6 +14,7 @@ from telegram.ext import (
 )
 from telegram import (
     Update,
+    KeyboardButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
@@ -25,7 +26,7 @@ from functools import wraps
 import colorlog
 import logging
 import inspect
-from typing import Callable, Any
+from typing import Callable, Any, Sequence
 from httpQueryUrl import queryUrl
 from settings import IniSettings, Url
 from monitor import Monitor
@@ -236,7 +237,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat:
         chat_id = update.effective_chat.id
-        logger.info(msg=f"test logger with chat_id {chat_id}")
         desc = "Where you are"
         tag = "help"
         help_text = "Available commands are:\n"
@@ -244,7 +244,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for command in commands:
             help_text += f'{command["desc"]}\n'
             keyboard.append(
-                [InlineKeyboardButton("/" + command["command"], callback_data=None)]
+                [
+                    InlineKeyboardButton(
+                        text="/" + command["command"], callback_data=None
+                    )
+                ]
             )
         reply_markup = ReplyKeyboardMarkup(
             keyboard=keyboard,
@@ -343,7 +347,23 @@ async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         chat_id = update.effective_chat.id
         desc = "Edit shinogramma settings"
         tag = "settings"
-        logger.debug(msg=chat_id)
+        """below InlineKeyboardMarkup"""
+        keyboard = [
+            [
+                InlineKeyboardButton(text="Opzione 1", url="https://www.google.it", callback_data="opzione1"),
+                InlineKeyboardButton(text="Opzione 2", callback_data="opzione2"),
+                InlineKeyboardButton(text="Opzione 3", callback_data="opzione3"),
+                InlineKeyboardButton(text="Opzione 4", callback_data="opzione4"),
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+        """below ReplyKeyboardMarkup"""
+        # keyboard = [[KeyboardButton(text="Opzione 1"), KeyboardButton(text="Opzione 2")]]
+        # reply_markup = ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+        await context.bot.send_message(
+            chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
+        )
 
 
 # End Telegram/Bot commands definition:
