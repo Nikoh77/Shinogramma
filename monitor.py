@@ -112,7 +112,7 @@ class Monitor:
     async def getVideo(self, index=None, operation=None) -> bool:
         HERE = inspect.currentframe()
         assert HERE is not None
-        tag = "video"
+        tag = HERE.f_code.co_name  # type: ignore
         url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/videos/{self.GROUP_KEY}/{self.MID}"
         videoList = await queryUrl(url=url)
         if videoList:
@@ -129,7 +129,7 @@ class Monitor:
                             videoListInJson=videoListInJson,
                             index=index,
                             tag=tag,
-                            url=url
+                            url=url,
                         ):
                             return True
                     else:
@@ -137,7 +137,7 @@ class Monitor:
                             videoListInJson=videoListInJson,
                             index=index,
                             url=url,
-                            operation=operation
+                            operation=operation,
                         ):
                             return True
                 except error.TelegramError as e:
@@ -183,7 +183,8 @@ class Monitor:
         return True
 
     async def videoSecondPass(
-        self, videoListInJson: list, index: int, tag: str, url: str) -> bool:
+        self, videoListInJson: list, index: int, tag: str, url: str
+    ) -> bool:
         number = len(videoListInJson)
         video = videoListInJson[index]
         start_time = datetime.fromisoformat(video.get("time"))
@@ -262,7 +263,8 @@ class Monitor:
         return False
 
     async def videoThirdPass(
-        self, videoListInJson: list, index: int, url: str, operation: str) -> bool:
+        self, videoListInJson: list, index: int, url: str, operation: str
+    ) -> bool:
         video = videoListInJson[index]
         fileName = video.get("filename")
         videoUrl = url + "/" + fileName

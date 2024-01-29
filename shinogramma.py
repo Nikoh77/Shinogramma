@@ -284,10 +284,10 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         [
                             InlineKeyboardButton(
                                 text=state,
-                                callback_data=[
-                                    tag,
-                                    state,
-                                ],
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": state,
+                                },
                             )
                         ]
                     )
@@ -325,7 +325,11 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         [
                             InlineKeyboardButton(
                                 text=monitor["name"],
-                                callback_data=[tag, monitor["id"], monitor["name"]],
+                                callback_data={
+                                    "tag": tag,
+                                    "mid": monitor["id"],
+                                    "choice": monitor["name"],
+                                },
                             )
                         ]
                     )
@@ -389,7 +393,16 @@ async def monitors_subcommand(
         buttons = []
         for choice in choices:
             buttons.append(
-                [InlineKeyboardButton(text=choice, callback_data=[tag, choice, mid])]
+                [
+                    InlineKeyboardButton(
+                        text=choice,
+                        callback_data={
+                            "tag": tag,
+                            "choice": choice,
+                            "mid": mid,
+                        },
+                    )
+                ]
             )
         reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         await context.bot.send_message(
@@ -407,11 +420,16 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
         query = update.callback_query
         if query is not None:
             if query.data is not None:
-                logger.debug(msg=f"Callback received: {query.data}")
-                tag = query.data[0]
-                print(tag)
+                assert isinstance(query.data, dict)
+                callbackFullData: dict = query.data
+                logger.debug(msg=f"Callback received: {callbackFullData}")
+                tag = callbackFullData.get("tag", None)
+                mid = callbackFullData.get("mid", None)
+                choice = callbackFullData.get("choice", None)
+                operation = callbackFullData.get("operation", None)
+                # TODO gestire la riga sotto che da errore se non ci sono dati persistenti e si clicca su vecchi pulsanti
                 if tag == "states_command":
-                    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{query.data[1]}"
+                    url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{choice}"
                     data = await queryUrl(url=url)
                     if data:
                         await query.answer(text="OK, done \U0001F44D")
@@ -419,11 +437,10 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                     await monitors_subcommand(
                         update=update,
                         context=context,
-                        mid=query.data[1],
-                        name=query.data[2],
+                        mid=mid,
+                        name=choice,
                     )
                 elif tag == "monitors_subcommand":
-                    mid = query.data[2]
                     thisMonitor = Monitor(
                         update=update,
                         context=context,
@@ -434,7 +451,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         groupKey=REQ_SHINOBI_GROUP_KEY["data"],
                         mid=mid,
                     )
-                    if query.data[1] == "snapshot":
+                    if choice == "snapshot":
                         if not await thisMonitor.getSnapshot():
                             await context.bot.send_message(
                                 chat_id=chat_id,
@@ -444,29 +461,30 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             value = "1"
                             desc = "Jpeg API for snapshots"
                             # to do: start config procedure to enable snap...
-                    elif query.data[1] == "stream":
+                    elif choice == "stream":
                         if not await thisMonitor.getStream():
                             await context.bot.send_message(
                                 chat_id=chat_id,
                                 text="Error something went wrong, requesting stream \u26A0\ufe0f",
                             )
-                    elif query.data[1] == "videos":
+                    elif choice == "videos":
                         if not await thisMonitor.getVideo():
                             await context.bot.send_message(
                                 chat_id=chat_id,
                                 text="Error something went wrong, requesting videos \u26A0\ufe0f",
                             )
-                    elif query.data[1] == "configure":
+                    elif choice == "configure":
                         context.user_data["from"] = query.data[1]
                         context.user_data["monitor"] = thisMonitor
                         await update.effective_message.reply_text(
                             text="Which parameter do you want to change?"
                         )
-                    elif query.data[1] == "map":
+                    elif choice == "map":
                         if not await thisMonitor.getMap():
                             pass
-                elif tag == "video":
-                    mid = query.data[2]
+                    else:
+                        pass  # TODO do something
+                elif tag == "getVideo":
                     thisMonitor = Monitor(
                         update=update,
                         context=context,
@@ -477,12 +495,12 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         groupKey=REQ_SHINOBI_GROUP_KEY["data"],
                         mid=mid,
                     )
-                    if len(query.data) == 3:
-                        index = int(query.data[1])
-                        await thisMonitor.getVideo(index=index)
-                    if len(query.data) == 4:
-                        index = int(query.data[1])
-                        await thisMonitor.getVideo(index=index, operation=query.data[3])
+                    if choice is not None:
+                        index = int(choice)
+                        operation = callbackFullData.get("operation", None)
+                        await thisMonitor.getVideo(index=index, operation=operation)
+                else:
+                    pass  # TODO do something
 
 
 async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
