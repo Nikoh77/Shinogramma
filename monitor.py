@@ -1,5 +1,4 @@
 import logging
-
 from httpQueryUrl import queryUrl
 import inspect
 import m3u8  # type: ignore
@@ -110,40 +109,37 @@ class Monitor:
             logger.error(msg="Error something went wrong requesting stream")
         return False
 
-    async def getVideo(self, index=None, operation=None, more=False) -> bool:
+    async def getVideo(self, index=None, operation=None) -> bool:
         HERE = inspect.currentframe()
         assert HERE is not None
         tag = "video"
         url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/videos/{self.GROUP_KEY}/{self.MID}"
-        debug = True
-        videoList = await queryUrl(
-            url=url,
-            debug=debug,
-        )
+        videoList = await queryUrl(url=url)
         if videoList:
             videoListInJson = videoList.json().get("videos")
             if len(videoListInJson) > 0:
                 try:
                     if index == None:
-                        await self.videoFirstPass(
+                        if await self.videoFirstPass(
                             videoListInJson=videoListInJson, tag=tag
-                        )
+                        ):
+                            return True
                     elif operation == None:
-                        await self.videoSecondPass(
+                        if await self.videoSecondPass(
                             videoListInJson=videoListInJson,
                             index=index,
                             tag=tag,
-                            url=url,
-                            debug=debug,
-                        )
+                            url=url
+                        ):
+                            return True
                     else:
-                        await self.videoThirdPass(
+                        if await self.videoThirdPass(
                             videoListInJson=videoListInJson,
                             index=index,
                             url=url,
-                            operation=operation,
-                            debug=debug,
-                        )
+                            operation=operation
+                        ):
+                            return True
                 except error.TelegramError as e:
                     logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
                 except (
@@ -162,10 +158,10 @@ class Monitor:
 
     async def videoFirstPass(self, videoListInJson: list, tag: str) -> bool:
         buttons: list = []
-        for index, video in enumerate((videoListInJson)):
+        for index, video in enumerate(iterable=(videoListInJson)):
             start_time = datetime.fromisoformat(video.get("time"))
             start = humanize.naturaltime(value=start_time)
-            CallBack = f"{tag};;{index};;{self.MID}"
+            CallBack = [tag, index, self.MID]
             if video["objects"]:
                 objects = video["objects"]
                 videoText = f"{start} -> {objects}"
@@ -187,8 +183,7 @@ class Monitor:
         return True
 
     async def videoSecondPass(
-        self, videoListInJson: list, index: int, tag: str, url: str, debug: bool
-    ) -> bool:
+        self, videoListInJson: list, index: int, tag: str, url: str) -> bool:
         number = len(videoListInJson)
         video = videoListInJson[index]
         start_time = datetime.fromisoformat(video.get("time"))
@@ -202,12 +197,10 @@ class Monitor:
         buttons = [
             [
                 InlineKeyboardButton(
-                    text="set unread",
-                    callback_data=f"{tag};;{index};;{self.MID};;unread",
+                    text="set unread", callback_data=[tag, index, self.MID, "unread"]
                 ),
                 InlineKeyboardButton(
-                    text="delete",
-                    callback_data=f"{tag};;{index};;{self.MID};;delete",
+                    text="delete", callback_data=[tag, index, self.MID, "delete"]
                 ),
             ]
         ]
@@ -215,59 +208,61 @@ class Monitor:
             buttons[0].insert(
                 0,
                 InlineKeyboardButton(
-                    text="prev",
-                    callback_data=f"{tag};;{index-1};;{self.MID}",
+                    text="prev", callback_data=[tag, index - 1, self.MID]
                 ),
             )
         if index < number - 1:
             buttons[0].append(
                 InlineKeyboardButton(
-                    text="next",
-                    callback_data=f"{tag};;{index+1};;{self.MID}",
+                    text="next", callback_data=[tag, index + 1, self.MID]
                 )
             )
         reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         if video["status"] == 1:
-            response = await queryUrl(url=setRead, debug=debug)
+            response = await queryUrl(url=setRead)
             if response:
                 if response.json()["ok"]:
-                    logger.info(msg=f"Video {self.MID}->{fileName} set as read")
+                    logger.debug(msg=f"Video {self.MID}->{fileName} set as read")
                     await self.query.answer("Video set as read.\U0001F373")
                 else:
-                    logger.error(msg="Error something went wrong doing things on video")
+                    logger.error(
+                        msg="Error something went wrong requesting set read status"
+                    )
                     await self.query.answer(
-                        "Error something went wrong doing things on video... \u26A0\ufe0f"
+                        "Error something went wrong requesting set read status... \u26A0\ufe0f"
                     )
             else:
                 logger.error(
                     msg="Error something went wrong requesting set read status"
                 )
         try:
-            await self.CONTEXT.bot.send_video(
+            if await self.CONTEXT.bot.send_video(
                 chat_id=self.CHAT_ID,
                 video=videoUrl,
                 supports_streaming=True,
                 caption=f"<b>{index+1}/{number} - {time} - {duration} - {size}</b>",
                 reply_markup=reply_markup,
                 parse_mode="HTML",
-            )
-            return True
+            ):
+                logger.debug(msg=f"Video {self.MID}->{fileName} sent")
+                return True
         except error.TelegramError as e:
-            await self.CONTEXT.bot.send_message(
+            logger.debug(
+                msg=f"Error sending video sending link (maybe exceed 20Mb): {e}"
+            )
+            if await self.CONTEXT.bot.send_message(
                 chat_id=self.CHAT_ID,
                 text=f"<b>{index+1}/{number} - {time} - {duration} - {size}\n{videoUrl}</b>",
                 disable_web_page_preview=False,
                 reply_markup=reply_markup,
                 parse_mode="HTML",
-            )
-            logger.debug(
-                msg=f"Error sending video, maybe exceed 20Mb, sending link...: \n{e}"
-            )
+            ):
+                logger.debug(msg=f"Link to Video {self.MID}->{fileName} sent")
+                return True
         return False
 
     async def videoThirdPass(
-        self, videoListInJson: list, index: int, url: str, operation: str, debug: bool
-    ) -> bool:
+        self, videoListInJson: list, index: int, url: str, operation: str) -> bool:
         video = videoListInJson[index]
         fileName = video.get("filename")
         videoUrl = url + "/" + fileName
@@ -279,10 +274,10 @@ class Monitor:
         else:
             url = delete
             caption = "has been deleted"
-        response = await queryUrl(url=url, debug=debug)
+        response = await queryUrl(url=url)
         if response:
             if response.json()["ok"]:
-                logger.info(msg=f"Video {self.MID}->{fileName} {caption}")
+                logger.debug(msg=f"Video {self.MID}->{fileName} {caption}")
                 await self.query.answer(f"Video {caption}.\U0001F373")
                 return True
             else:
