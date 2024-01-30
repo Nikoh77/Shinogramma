@@ -35,6 +35,12 @@ from monitor import Monitor
 from pathlib import Path
 import ast
 
+"""
+Below import is functional to pipreqs which does not add python-telegram-bot[callback-data] 
+to the requirements.txt file
+"""
+import cachetools
+
 # Defining root constants
 """
 Below constant is required to set the log level only for some modules directly involved by
