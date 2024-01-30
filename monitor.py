@@ -1,4 +1,5 @@
 import logging
+from random import choice
 from httpQueryUrl import queryUrl
 import inspect
 import m3u8  # type: ignore
@@ -161,7 +162,6 @@ class Monitor:
         for index, video in enumerate(iterable=(videoListInJson)):
             start_time = datetime.fromisoformat(video.get("time"))
             start = humanize.naturaltime(value=start_time)
-            CallBack = [tag, index, self.MID]
             if video["objects"]:
                 objects = video["objects"]
                 videoText = f"{start} -> {objects}"
@@ -171,7 +171,12 @@ class Monitor:
                 videoText = videoText.upper()
             buttons.insert(
                 0,
-                [InlineKeyboardButton(text=videoText, callback_data=CallBack)],
+                [
+                    InlineKeyboardButton(
+                        text=videoText,
+                        callback_data={"tag": tag, "choice": index, "mid": self.MID},
+                    )
+                ],
             )
         reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons[-20:])
         await self.CONTEXT.bot.send_message(
@@ -198,10 +203,22 @@ class Monitor:
         buttons = [
             [
                 InlineKeyboardButton(
-                    text="set unread", callback_data=[tag, index, self.MID, "unread"]
+                    text="set unread",
+                    callback_data={
+                        "tag": tag,
+                        "choice": index,
+                        "mid": self.MID,
+                        "operation": "unread",
+                    },
                 ),
                 InlineKeyboardButton(
-                    text="delete", callback_data=[tag, index, self.MID, "delete"]
+                    text="delete",
+                    callback_data={
+                        "tag": tag,
+                        "choice": index,
+                        "mid": self.MID,
+                        "operation": "delete",
+                    },
                 ),
             ]
         ]
@@ -209,13 +226,15 @@ class Monitor:
             buttons[0].insert(
                 0,
                 InlineKeyboardButton(
-                    text="prev", callback_data=[tag, index - 1, self.MID]
+                    text="prev",
+                    callback_data={"tag": tag, "choice": index - 1, "mid": self.MID},
                 ),
             )
         if index < number - 1:
             buttons[0].append(
                 InlineKeyboardButton(
-                    text="next", callback_data=[tag, index + 1, self.MID]
+                    text="next",
+                    callback_data={"tag": tag, "choice": index + 1, "mid": self.MID},
                 )
             )
         reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
