@@ -267,8 +267,8 @@ class Monitor:
                 logger.debug(msg=f"Video {self.MID}->{fileName} sent")
                 return True
         except error.TelegramError as e:
-            logger.debug(
-                msg=f"Error sending video sending link (maybe exceed 20Mb): {e}"
+            logger.error(
+                msg=f"Error sending video (maybe exceed 20Mb), continuing with link: {e}"
             )
             if await self.CONTEXT.bot.send_message(
                 chat_id=self.CHAT_ID,

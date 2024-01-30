@@ -12,7 +12,7 @@ from telegram.ext import (
     ConversationHandler,
     filters,
     PicklePersistence,
-    PersistenceInput,
+    PersistenceInput
 )
 from telegram import (
     Update,
@@ -34,7 +34,6 @@ from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
 import ast
-
 
 # Defining root constants
 """
@@ -423,7 +422,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                 assert isinstance(query.data, dict)
                 callbackFullData: dict = query.data
                 logger.debug(msg=f"Callback received: {callbackFullData}")
-                tag = callbackFullData.get("tag", None)
+                tag = callbackFullData.get("tag")
                 mid = callbackFullData.get("mid", None)
                 choice = callbackFullData.get("choice", None)
                 operation = callbackFullData.get("operation", None)
