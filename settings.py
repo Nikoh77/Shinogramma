@@ -72,13 +72,22 @@ class IniSettings:
                     if option["data"] is None:
                         value = input(f"Please insert the {section} {option['name']}: ")
                     else:
-                        logger.info(msg=f"{section} {option['name']} not found, assuming default...")
+                        logger.info(
+                            msg=f"{section} {option['name']} not found, assuming default..."
+                        )
                         value = option["data"]
-                        if self.__verifyTypeOf(
-                            value=value, typeOf=option["typeOf"], name=option["name"]
+                        if (
+                            self.__verifyTypeOf(
+                                value=value,
+                                typeOf=option["typeOf"],
+                                name=option["name"],
+                            )
+                            is not None
                         ):
                             self.__config.set(
-                                section=section, option=option["name"], value=value
+                                section=section,
+                                option=option["name"],
+                                value=str(object=value),
                             )
                         else:
                             logger.error(
@@ -108,7 +117,7 @@ class IniSettings:
                                 typeOf=optionInNeeded["typeOf"],
                                 name=optionInNeeded["name"],
                             )
-                            if convertedValue:
+                            if convertedValue is not None:
                                 data[option] = convertedValue
                             else:
                                 logger.error(
@@ -122,21 +131,29 @@ class IniSettings:
             return self.__buildSettings(settings=settings)
         return False
 
-    def __verifyTypeOf(self, value: str, typeOf: type, name: str) -> bool | str:
+    def __verifyTypeOf(self, value: str, typeOf: type, name: str) -> None | Any:
         """Verify and optionally convert the type of a value."""
         try:
             if typeOf == Url:
                 if self.__verifyUrl(url=value):
                     return value
+            elif typeOf == bool:
+                if isinstance(value, bool):
+                    return value
+                else:
+                    if value.lower() == "false":
+                        return False
+                    elif value.lower() == "true":
+                        return True
             else:
                 if name == "loglevel":
                     if not self.__verifyLogLevel(loglevel=value):
-                        return False
+                        return None
                 convertedValue = typeOf(value)
                 return convertedValue
-            return False
+            return None
         except ValueError:
-            return False
+            return None
 
     def __verifyUrl(self, url: str) -> bool:
         """Verify if the given URL is valid."""

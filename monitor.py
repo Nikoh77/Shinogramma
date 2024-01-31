@@ -1,5 +1,4 @@
 import logging
-from random import choice
 from httpQueryUrl import queryUrl
 import inspect
 import m3u8  # type: ignore
@@ -51,10 +50,11 @@ class Monitor:
                         text="Jpeg API not active on this monitor \u26A0\ufe0f",
                         show_alert=True,
                     )
-            except error.TelegramError as e:
-                logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-            else:  # if error is not of type error.TelegramError (PythonTelegramBot) raise it
-                raise
+            except Exception as e:
+                if isinstance(e, error.TelegramError):
+                    logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
+                else:
+                    raise e
         else:
             logger.error(msg="Error something went wrong requesting snapshot")
         return False
@@ -102,10 +102,11 @@ class Monitor:
                         chat_id=self.CHAT_ID,
                         text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f",
                     )
-            except error.TelegramError as e:
-                logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-            else:  # if error is not of type error.TelegramError (PythonTelegramBot) raise it
-                raise
+            except Exception as e:
+                if isinstance(e, error.TelegramError):
+                    logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
+                else:
+                    raise e
         else:
             logger.error(msg="Error something went wrong requesting stream")
         return False
@@ -141,12 +142,11 @@ class Monitor:
                             operation=operation,
                         ):
                             return True
-                except error.TelegramError as e:
-                    logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-                except (
-                    Exception
-                ):  # if error is not of type error.TelegramError (PythonTelegramBot) raise it
-                    raise
+                except Exception as e:
+                    if isinstance(e, error.TelegramError):
+                        logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
+                    else:
+                        raise e
             else:
                 logger.info(msg="No videos found for this monitor...\u26A0\ufe0f")
                 await self.query.answer(
@@ -349,7 +349,7 @@ class Monitor:
                 )
                 return True
             else:
-                logger.info(msg="unknown parameter")
+                logger.error(msg="unknown parameter")
                 await self.CONTEXT.bot.send_message(
                     chat_id=self.CHAT_ID, text="Unknown parameter... \u26A0\ufe0f"
                 )

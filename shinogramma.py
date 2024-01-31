@@ -39,8 +39,6 @@ import ast
 Below import is functional to pipreqs which does not add python-telegram-bot[callback-data] 
 to the requirements.txt file
 """
-import cachetools
-
 # Defining root constants
 """
 Below constant is required to set the log level only for some modules directly involved by
@@ -89,6 +87,7 @@ REQ_SHINOBI_GROUP_KEY: dict = {"data": None, "typeOf": str}
 REQ_SHINOBI_BASE_URL: dict = {"data": None, "typeOf": Url}
 REQ_SHINOBI_PORT: dict = {"data": 8080, "typeOf": int}
 REQ_SHINOGRAMMA_LOGLEVEL: dict = {"data": "info", "typeOf": str}
+REQ_SHINOGRAMMA_PERSISTENCE: dict = {"data": False, "typeOf": bool}
 
 # Defining root variables
 commands: list = []
@@ -422,9 +421,8 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
     if update.effective_chat:
         chat_id = update.effective_chat.id
         query = update.callback_query
-        if query is not None:
-            if query.data is not None:
-                assert isinstance(query.data, dict)
+        if query is not None and query.data is not None:
+            if isinstance(query.data, dict):
                 callbackFullData: dict = query.data
                 logger.debug(msg=f"Callback received: {callbackFullData}")
                 tag = callbackFullData.get("tag")
@@ -478,16 +476,17 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                                 text="Error something went wrong, requesting videos \u26A0\ufe0f",
                             )
                     elif choice == "configure":
-                        context.user_data["from"] = query.data[1]
-                        context.user_data["monitor"] = thisMonitor
-                        await update.effective_message.reply_text(
-                            text="Which parameter do you want to change?"
-                        )
+                        if context.user_data is not None:
+                            context.user_data["from"] = choice
+                            context.user_data["monitor"] = thisMonitor
+                            if update.effective_message is not None:
+                                await update.effective_message.reply_text(
+                                    text="Which parameter do you want to change?"
+                                )
                     elif choice == "map":
                         if not await thisMonitor.getMap():
                             pass
-                    else:
-                        pass  # TODO do something
+
                 elif tag == "getVideo":
                     thisMonitor = Monitor(
                         update=update,
@@ -503,29 +502,31 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         index = int(choice)
                         operation = callbackFullData.get("operation", None)
                         await thisMonitor.getVideo(index=index, operation=operation)
-                else:
-                    pass  # TODO do something
 
 
 async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
-    user_text = update.message.text
-    logger.info(msg=f"User wrote: {user_text}")
-    if "from" in context.user_data:
-        if context.user_data["from"] == "configure":
-            context.user_data["from"] = "handle"
-            context.user_data["key"] = user_text
-            await update.effective_message.reply_text(
-                text="Which value do you want to assign?"
-            )
-        elif context.user_data["from"] == "handle":
-            context.user_data.pop("from")
-            thisMonitor = context.user_data["monitor"]
-            context.user_data.pop("monitor")
-            key = context.user_data["key"]
-            context.user_data.pop("key")
-            value = user_text
-            chat_id = update.effective_chat.id
-            await thisMonitor.configure(key, value)
+    if update.effective_message is not None:
+        # if update.message is not None:
+        # user_text = update.message.text
+        user_text = update.effective_message.text
+        logger.info(msg=f"User wrote: {user_text}")
+        if context.user_data is not None:
+            if "from" in context.user_data.keys():
+                if context.user_data["from"] == "configure":
+                    context.user_data["from"] = "handle"
+                    context.user_data["key"] = user_text
+                    await update.effective_message.reply_text(
+                        text="Which value do you want to assign?"
+                    )
+                elif context.user_data["from"] == "handle":
+                    context.user_data.pop("from")
+                    thisMonitor = context.user_data["monitor"]
+                    context.user_data.pop("monitor")
+                    key = context.user_data["key"]
+                    context.user_data.pop("key")
+                    value = user_text
+                    # chat_id = update.effective_chat.id
+                    await thisMonitor.configure(key, value)
 
 
 def checkVarInFunction(func: Callable, varName: str) -> str | None:
@@ -563,19 +564,15 @@ def parseForCommands() -> None:
 
 
 def startBot() -> None:
-    myPersistenceInput = PersistenceInput(
-        bot_data=False, chat_data=False, user_data=False, callback_data=True
-    )
-    myPersistence = PicklePersistence(
-        filepath=".persistence", store_data=myPersistenceInput
-    )
-    application = (
-        ApplicationBuilder()
-        .token(token=REQ_TELEGRAM_API_KEY["data"])
-        .persistence(persistence=myPersistence)
-        .arbitrary_callback_data(arbitrary_callback_data=True)
-        .build()
-    )
+    try:
+        import cachetools
+    except ImportError:
+        logger.critical(msg="Cachetools module not found")
+        return
+    if REQ_SHINOGRAMMA_PERSISTENCE["data"]:
+        application = startWithPersistence()
+    else:
+        application = startWithoutPersistence()
     callback_query_handler = CallbackQueryHandler(callback=callback_handler)
     text_handler = MessageHandler(
         filters=filters.TEXT & ~filters.COMMAND,
@@ -592,6 +589,35 @@ def startBot() -> None:
     logger.info(msg="ShinogrammaBot Up and running")
     application.run_polling(drop_pending_updates=True)
     return
+
+
+def startWithPersistence():
+    myPersistenceInput = PersistenceInput(
+        bot_data=False, chat_data=False, user_data=False, callback_data=True
+    )
+    myPersistence = PicklePersistence(
+        filepath=".persistence", store_data=myPersistenceInput
+    )
+    logger.info(msg="Starting with persistence")
+    application = (
+        ApplicationBuilder()
+        .token(token=REQ_TELEGRAM_API_KEY["data"])
+        .persistence(persistence=myPersistence)
+        .arbitrary_callback_data(arbitrary_callback_data=True)
+        .build()
+    )
+    return application
+
+
+def startWithoutPersistence():
+    logger.info(msg="Starting without persistence")
+    application = (
+        ApplicationBuilder()
+        .token(token=REQ_TELEGRAM_API_KEY["data"])
+        .arbitrary_callback_data(arbitrary_callback_data=True)
+        .build()
+    )
+    return application
 
 
 if __name__ == "__main__":
