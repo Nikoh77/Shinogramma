@@ -1,5 +1,5 @@
 colorlog
 humanize
 m3u8
-python-telegram-bot[callback-data]
+python-telegram-bot
 Requests

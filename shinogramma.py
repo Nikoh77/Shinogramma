@@ -12,7 +12,7 @@ from telegram.ext import (
     ConversationHandler,
     filters,
     PicklePersistence,
-    PersistenceInput
+    PersistenceInput,
 )
 from telegram import (
     Update,
@@ -28,12 +28,18 @@ from functools import wraps
 import colorlog
 import logging
 import inspect
-from typing import Callable, Any, Sequence
+from typing import Callable, Any, Coroutine
 from httpQueryUrl import queryUrl
 from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
 import ast
+
+"""
+Below import is functional to pipreqs which does not add python-telegram-bot[callback-data] 
+to the requirements.txt file
+"""
+import cachetools
 
 # Defining root constants
 """
@@ -173,14 +179,13 @@ def restricted(func):
     """Restrict chat only with id(es) defined in config.ini"""
 
     @wraps(wrapped=func)
-    def wrapped(update, context, *args, **kwargs):
-        if len(TELEGRAM_CHAT_ID) == 0:
-            return func(update, context, *args, **kwargs)
-        chat_id = update.effective_user.id
-        if chat_id not in TELEGRAM_CHAT_ID:
-            logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
-            return
-        return func(update, context, *args, **kwargs)
+    async def wrapped(update, context, *args, **kwargs):
+        if len(TELEGRAM_CHAT_ID) > 0:
+            chat_id = update.effective_user.id
+            if chat_id not in TELEGRAM_CHAT_ID:
+                logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
+                return
+        return await func(update, context, *args, **kwargs)
 
     return wrapped
 
