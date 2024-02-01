@@ -2,11 +2,11 @@ import logging
 from httpQueryUrl import queryUrl
 import inspect
 import m3u8  # type: ignore
-import humanize
 import json
 import time
 import io
 from datetime import datetime
+import humanize
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, error
 
 logger = logger = logging.getLogger(name=__name__)
@@ -111,7 +111,7 @@ class Monitor:
             logger.error(msg="Error something went wrong requesting stream")
         return False
 
-    async def getVideo(self, index=None, operation=None) -> bool:
+    async def getVideo(self, index=None) -> bool:
         HERE = inspect.currentframe()
         assert HERE is not None
         tag = HERE.f_code.co_name  # type: ignore
@@ -120,194 +120,44 @@ class Monitor:
         if videoList:
             videoListInJson = videoList.json().get("videos")
             if len(videoListInJson) > 0:
-                try:
-                    if index == None:
-                        if await self.videoFirstPass(
-                            videoListInJson=videoListInJson, tag=tag
-                        ):
-                            return True
-                    elif operation == None:
-                        if await self.videoSecondPass(
-                            videoListInJson=videoListInJson,
-                            index=index,
-                            tag=tag,
-                            url=url,
-                        ):
-                            return True
-                    else:
-                        if await self.videoThirdPass(
-                            videoListInJson=videoListInJson,
-                            index=index,
-                            url=url,
-                            operation=operation,
-                        ):
-                            return True
-                except Exception as e:
-                    if isinstance(e, error.TelegramError):
-                        logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-                    else:
-                        raise e
+                if index == None:
+                    buttons: list = []
+                    for index, video in enumerate(iterable=(videoListInJson)):
+                        start_time = datetime.fromisoformat(video.get("time"))
+                        start = humanize.naturaltime(value=start_time)
+                        if video["objects"]:
+                            objects = video["objects"]
+                            videoText = f"{start} -> {objects}"
+                        else:
+                            videoText = f"{start}"
+                        if video["status"] == 1:
+                            videoText = videoText.upper()
+                        buttons.insert(
+                            0,
+                            [
+                                InlineKeyboardButton(
+                                    text=videoText,
+                                    callback_data={
+                                        "tag": tag,
+                                        "choice": index,
+                                        "mid": self.MID,
+                                    },
+                                )
+                            ],
+                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons[-20:])
+                    await self.CONTEXT.bot.send_message(
+                        chat_id=self.CHAT_ID,
+                        text="Select one video from this limited (20) list <b>(in uppercase are new)</b>.",
+                        reply_markup=reply_markup,
+                        parse_mode="HTML",
+                    )
+                    return True
             else:
                 logger.info(msg="No videos found for this monitor...\u26A0\ufe0f")
                 await self.query.answer(
                     "No videos found for this monitor...\u26A0\ufe0f"
                 )
-                return True
-        else:
-            logger.error(msg="Error something went wrong requesting videos")
-        return False
-
-    async def videoFirstPass(self, videoListInJson: list, tag: str) -> bool:
-        buttons: list = []
-        for index, video in enumerate(iterable=(videoListInJson)):
-            start_time = datetime.fromisoformat(video.get("time"))
-            start = humanize.naturaltime(value=start_time)
-            if video["objects"]:
-                objects = video["objects"]
-                videoText = f"{start} -> {objects}"
-            else:
-                videoText = f"{start}"
-            if video["status"] == 1:
-                videoText = videoText.upper()
-            buttons.insert(
-                0,
-                [
-                    InlineKeyboardButton(
-                        text=videoText,
-                        callback_data={"tag": tag, "choice": index, "mid": self.MID},
-                    )
-                ],
-            )
-        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons[-20:])
-        await self.CONTEXT.bot.send_message(
-            chat_id=self.CHAT_ID,
-            text="Select one video from this limited (20) list <b>(in uppercase are new)</b>.",
-            reply_markup=reply_markup,
-            parse_mode="HTML",
-        )
-        return True
-
-    async def videoSecondPass(
-        self, videoListInJson: list, index: int, tag: str, url: str
-    ) -> bool:
-        number = len(videoListInJson)
-        video = videoListInJson[index]
-        start_time = datetime.fromisoformat(video.get("time"))
-        end_time = datetime.fromisoformat(video.get("end"))
-        duration = humanize.naturaldelta(value=end_time - start_time)
-        time = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        size = humanize.naturalsize(value=video.get("size"))
-        fileName = video.get("filename")
-        videoUrl = url + "/" + fileName
-        setRead = f"{videoUrl}/status/2"
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    text="set unread",
-                    callback_data={
-                        "tag": tag,
-                        "choice": index,
-                        "mid": self.MID,
-                        "operation": "unread",
-                    },
-                ),
-                InlineKeyboardButton(
-                    text="delete",
-                    callback_data={
-                        "tag": tag,
-                        "choice": index,
-                        "mid": self.MID,
-                        "operation": "delete",
-                    },
-                ),
-            ]
-        ]
-        if index > 0:
-            buttons[0].insert(
-                0,
-                InlineKeyboardButton(
-                    text="prev",
-                    callback_data={"tag": tag, "choice": index - 1, "mid": self.MID},
-                ),
-            )
-        if index < number - 1:
-            buttons[0].append(
-                InlineKeyboardButton(
-                    text="next",
-                    callback_data={"tag": tag, "choice": index + 1, "mid": self.MID},
-                )
-            )
-        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-        if video["status"] == 1:
-            response = await queryUrl(url=setRead)
-            if response:
-                if response.json()["ok"]:
-                    logger.debug(msg=f"Video {self.MID}->{fileName} set as read")
-                    await self.query.answer("Video set as read.\U0001F373")
-                else:
-                    logger.error(
-                        msg="Error something went wrong requesting set read status"
-                    )
-                    await self.query.answer(
-                        "Error something went wrong requesting set read status... \u26A0\ufe0f"
-                    )
-            else:
-                logger.error(
-                    msg="Error something went wrong requesting set read status"
-                )
-        try:
-            if await self.CONTEXT.bot.send_video(
-                chat_id=self.CHAT_ID,
-                video=videoUrl,
-                supports_streaming=True,
-                caption=f"<b>{index+1}/{number} - {time} - {duration} - {size}</b>",
-                reply_markup=reply_markup,
-                parse_mode="HTML",
-            ):
-                logger.debug(msg=f"Video {self.MID}->{fileName} sent")
-                return True
-        except error.TelegramError as e:
-            logger.error(
-                msg=f"Error sending video (maybe exceed 20Mb), continuing with link: {e}"
-            )
-            if await self.CONTEXT.bot.send_message(
-                chat_id=self.CHAT_ID,
-                text=f"<b>{index+1}/{number} - {time} - {duration} - {size}\n{videoUrl}</b>",
-                disable_web_page_preview=False,
-                reply_markup=reply_markup,
-                parse_mode="HTML",
-            ):
-                logger.debug(msg=f"Link to Video {self.MID}->{fileName} sent")
-                return True
-        return False
-
-    async def videoThirdPass(
-        self, videoListInJson: list, index: int, url: str, operation: str
-    ) -> bool:
-        video = videoListInJson[index]
-        fileName = video.get("filename")
-        videoUrl = url + "/" + fileName
-        setUnread = f"{videoUrl}/status/1"
-        delete = f"{videoUrl}/delete"
-        if operation == "unread":
-            url = setUnread
-            caption = "set as unread"
-        else:
-            url = delete
-            caption = "has been deleted"
-        response = await queryUrl(url=url)
-        if response:
-            if response.json()["ok"]:
-                logger.debug(msg=f"Video {self.MID}->{fileName} {caption}")
-                await self.query.answer(f"Video {caption}.\U0001F373")
-                return True
-            else:
-                logger.error(msg="Error something went wrong doing things on video")
-                await self.query.answer(
-                    "Error something went wrong doing things on video... \u26A0\ufe0f"
-                )
-        else:
-            logger.error(msg="Error something went wrong requesting videos")
         return False
 
     async def getMap(self):
@@ -330,7 +180,7 @@ class Monitor:
             )
             return False
 
-    async def configure(self, key, value, desc=None) -> bool:
+    async def configure(self, key, value) -> bool:
         data = await queryUrl(url=self.url)
         if data:
             dataInJson = data.json()[0]
@@ -341,13 +191,26 @@ class Monitor:
                 endpoint = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/configureMonitor/{self.GROUP_KEY}/{self.MID}"
                 method = "post"
                 debug = True
-                await queryUrl(
+                response = await queryUrl(
                     url=endpoint,
                     method=method,
-                    data=data,
+                    data=dataInJson,
                     debug=debug,
                 )
-                return True
+                if response:
+                    if response.json()["ok"]:
+                        logger.debug(msg=f"{self.MID}->{key} now configured with: {value}")
+                        await self.query.answer("Video set as read.\U0001F373")
+                        return True
+                    else:
+                        logger.error(
+                            msg=f"Error something went wrong configuring {self.MID} monitor"
+                        )
+                        await self.query.answer(
+                            f"Error something went wrong configuring {self.MID} monitor... \u26A0\ufe0f"
+                        )
+                else:
+                    logger.error(msg="Error something went wrong requesting configuration")
             else:
                 logger.error(msg="unknown parameter")
                 await self.CONTEXT.bot.send_message(

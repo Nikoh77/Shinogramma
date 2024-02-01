@@ -3,6 +3,7 @@
 # or donate me a coffee
 
 from telegram.ext import (
+    Application,
     ApplicationBuilder,
     ContextTypes,
     CommandHandler,
@@ -34,6 +35,7 @@ from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
 import ast
+from video import Video
 
 """
 Below import is functional to pipreqs which does not add python-telegram-bot[callback-data] 
@@ -49,6 +51,7 @@ them to the list below
 MODULES_LOGGERS: list[str] = ["__main__", "httpQueryUrl", "settings", "monitor"]
 CONFIG_FILE: Path = Path("config.ini")
 TELEGRAM_CHAT_ID: list[int] = []
+application: Application
 """
 Below required data for running this software, are defined as a constants.
 Starting from these constants the variable `neededSettings` is created; she is used by
@@ -353,30 +356,28 @@ async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @send_action(action=constants.ChatAction.TYPING)
 async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat:
-        large_dict = {
-            "key1": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas euismod...",
-            "key2": "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad...",
-            "key3": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore...",
-            "key4": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia...",
-            # Aggiungi altre chiavi e valori se necessario
-        }
         chat_id = update.effective_chat.id
         desc = "Edit shinogramma settings"
-        tag = "settings"
-        """below InlineKeyboardMarkup"""
+        tag = inspect.currentframe().f_code.co_name  # type: ignore
         keyboard = [
             [
-                InlineKeyboardButton(text="Opzione 1", callback_data=large_dict),
-                InlineKeyboardButton(text="Opzione 2", callback_data="opzione2"),
-                InlineKeyboardButton(text="Opzione 3", callback_data="opzione3"),
-                InlineKeyboardButton(text="Opzione 4", callback_data="opzione4"),
+                InlineKeyboardButton(
+                    text="Terminate",
+                    callback_data={
+                        "tag": tag,
+                        "choice": "terminate",
+                    },
+                ),
+                InlineKeyboardButton(
+                    text="Reboot",
+                    callback_data={
+                        "tag": tag,
+                        "choice": "reboot",
+                    },
+                ),
             ]
         ]
         reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-        """below ReplyKeyboardMarkup"""
-        # keyboard = [[KeyboardButton(text="Opzione 1"), KeyboardButton(text="Opzione 2")]]
-        # reply_markup = ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
-
         await context.bot.send_message(
             chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
         )
@@ -429,7 +430,6 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                 mid = callbackFullData.get("mid", None)
                 choice = callbackFullData.get("choice", None)
                 operation = callbackFullData.get("operation", None)
-                # TODO gestire la riga sotto che da errore se non ci sono dati persistenti e si clicca su vecchi pulsanti
                 if tag == "states_command":
                     url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}/{choice}"
                     data = await queryUrl(url=url)
@@ -469,12 +469,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                                 chat_id=chat_id,
                                 text="Error something went wrong, requesting stream \u26A0\ufe0f",
                             )
-                    elif choice == "videos":
-                        if not await thisMonitor.getVideo():
-                            await context.bot.send_message(
-                                chat_id=chat_id,
-                                text="Error something went wrong, requesting videos \u26A0\ufe0f",
-                            )
+
                     elif choice == "configure":
                         if context.user_data is not None:
                             context.user_data["from"] = choice
@@ -487,8 +482,15 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         if not await thisMonitor.getMap():
                             pass
 
+                    elif choice == "videos":
+                        if not await thisMonitor.getVideo():
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text="Error something went wrong, requesting videos \u26A0\ufe0f",
+                            )
+
                 elif tag == "getVideo":
-                    thisMonitor = Monitor(
+                    thisVideo = Video(
                         update=update,
                         context=context,
                         chatId=chat_id,
@@ -501,15 +503,21 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                     if choice is not None:
                         index = int(choice)
                         operation = callbackFullData.get("operation", None)
-                        await thisMonitor.getVideo(index=index, operation=operation)
+                        await thisVideo.getVideo(index=index, operation=operation)
+                elif tag == "BOTsettings_command":
+                    if choice == "terminate":
+                        await context.bot.send_message(
+                            chat_id=chat_id, text="Shinogramma terminated"
+                        )
+                        global application
+                        application.stop_running()
 
 
+@restricted
 async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
     if update.effective_message is not None:
-        # if update.message is not None:
-        # user_text = update.message.text
         user_text = update.effective_message.text
-        logger.info(msg=f"User wrote: {user_text}")
+        logger.debug(msg=f"User wrote: {user_text}")
         if context.user_data is not None:
             if "from" in context.user_data.keys():
                 if context.user_data["from"] == "configure":
@@ -525,7 +533,6 @@ async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
                     key = context.user_data["key"]
                     context.user_data.pop("key")
                     value = user_text
-                    # chat_id = update.effective_chat.id
                     await thisMonitor.configure(key, value)
 
 
@@ -564,6 +571,7 @@ def parseForCommands() -> None:
 
 
 def startBot() -> None:
+    global application
     try:
         import cachetools
     except ImportError:
