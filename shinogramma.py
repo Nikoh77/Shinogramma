@@ -551,19 +551,6 @@ async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
                     value = user_text
                     await thisMonitor.configure(key, value)
 
-
-# def checkVarInFunction(func: Callable, varName: str) -> str | None:
-#     source = inspect.getsource(object=func)
-#     tree = ast.parse(source=source)
-#     for node in ast.walk(node=tree):
-#         if isinstance(node, ast.Assign):
-#             for target in node.targets:
-#                 if isinstance(target, ast.Name) and target.id == varName:
-#                     value = ast.literal_eval(node_or_string=node.value)
-#                     return value
-#     return None
-
-
 def parseForCommands():
     frame = inspect.currentframe()
     assert frame is not None
@@ -575,27 +562,18 @@ def parseForCommands():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop=loop)
     for function in command_functions:
-        try:
-            io = loop.run_until_complete(future=function(update=None, context=None))
-            print(f"func is: {function.__name__}")
-            # desc = function.__getattribute__("desc")
-            print(io)
-        except:
-            print("niente")
-        # desc = checkVarInFunction(func=function, varName="desc")
+        desc = loop.run_until_complete(future=function(update=None, context=None))
         command = function.__name__.split(sep="_")[0]
         name = function.__name__
-        # if not desc:
-        #     logger.warning(msg=f"{function.__name__} function has no description...")
-        #     fullDesc = "/" + command
-        # else:
-        #     fullDesc = "/" + command + " - " + desc
-        fullDesc = "/" + command
+        if not desc:
+            logger.warning(msg=f"{function.__name__} function has no description...")
+            fullDesc = "/" + command
+        else:
+            fullDesc = "/" + command + " - " + desc
         data = {"func": function, "name": name, "command": command, "desc": fullDesc}
         commands.append(data)
     commandJustForLog = ", ".join(c["command"] for i, c in enumerate(iterable=commands))
     logger.debug(msg=f"List of active commands: {commandJustForLog}")
-
 
 def startBot() -> None:
     global application
