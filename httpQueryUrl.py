@@ -1,10 +1,8 @@
 import logging
-from typing import Any
 import requests
 import json  # for debug only, can be removed when all work fine...
 
 logger = logging.getLogger(name=__name__)
-
 
 async def queryUrl(
     url, method="get", data=None, debug=False

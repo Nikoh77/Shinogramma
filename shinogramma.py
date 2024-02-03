@@ -2,6 +2,7 @@
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github
 # or donate me a coffee
 
+import asyncio
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -10,20 +11,17 @@ from telegram.ext import (
     MessageHandler,
     CallbackContext,
     CallbackQueryHandler,
-    ConversationHandler,
     filters,
     PicklePersistence,
     PersistenceInput,
 )
 from telegram import (
     Update,
-    KeyboardButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     InlineQueryResultVideo,
     constants,
-    error,
 )
 from functools import wraps
 import colorlog
@@ -34,7 +32,6 @@ from httpQueryUrl import queryUrl
 from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
-import ast
 from video import Video
 
 """
@@ -52,6 +49,7 @@ MODULES_LOGGERS: list[str] = ["__main__", "httpQueryUrl", "settings", "monitor"]
 CONFIG_FILE: Path = Path("config.ini")
 TELEGRAM_CHAT_ID: list[int] = []
 application: Application
+started = False
 """
 Below required data for running this software, are defined as a constants.
 Starting from these constants the variable `neededSettings` is created; she is used by
@@ -181,14 +179,18 @@ def restricted(func):
     """Restrict chat only with id(es) defined in config.ini"""
 
     @wraps(wrapped=func)
+    # async def wrapped(update, context, *args, **kwargs):
     async def wrapped(update, context, *args, **kwargs):
-        if len(TELEGRAM_CHAT_ID) > 0:
+        if update is not None and context is not None:
             chat_id = update.effective_user.id
-            if chat_id not in TELEGRAM_CHAT_ID:
-                logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
-                return
-        return await func(update, context, *args, **kwargs)
-
+            if len(TELEGRAM_CHAT_ID) > 0:
+                if chat_id not in TELEGRAM_CHAT_ID:
+                    logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
+                    return
+        else:
+            chat_id = 11111
+        return await func(update, context, chat_id, *args, **kwargs)
+    
     return wrapped
 
 
@@ -210,177 +212,191 @@ def send_action(action):
 # End decorators section
 
 
-# Start Telegram/Bot commands definition (ALL must be decorated with restricted):
+# Start Telegram/Bot commands definition (ALL must be decorated with restricted for security reasons):
 @restricted
-@send_action(action=constants.ChatAction.TYPING)
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_chat:
-        chat_id = update.effective_chat.id
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None | str:
+    if update is None and context is None and chat_id == 11111:
         desc = "Start this bot"
-        tag = "start"
-        keyboard: list[list[InlineKeyboardButton]] = []
-        for command in commands:
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        text="/" + command["command"], callback_data=None
-                    )
-                ]
-            )
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard=keyboard,  # type: ignore
-            resize_keyboard=True,
-            one_time_keyboard=True,
-            input_field_placeholder="choose the command",
-        )
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A",
-            reply_markup=reply_markup,
-        )
+        return desc
+    else:
+        if update.effective_chat:
+            tag = "start"
+            keyboard: list[list[InlineKeyboardButton]] = []
+            for command in commands:
+                keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            text="/" + command["command"], callback_data=None
+                        )
+                    ]
+                )
+            reply_markup = ReplyKeyboardMarkup(
+                    keyboard=keyboard,  # type: ignore
+                    resize_keyboard=True,
+                    one_time_keyboard=True,
+                    input_field_placeholder="choose the command",
+                )
+            await context.bot.send_message(
+                    chat_id=chat_id,
+                    text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A",
+                    reply_markup=reply_markup,
+                )
+        return None
 
 
 @restricted
-@send_action(action=constants.ChatAction.TYPING)
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat:
-        chat_id = update.effective_chat.id
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None | str:
+    if update is None and context is None and chat_id == 11111:
         desc = "Where you are"
-        tag = "help"
-        help_text = "Available commands are:\n"
-        keyboard = []
-        for command in commands:
-            help_text += f'{command["desc"]}\n'
-            keyboard.append(
+        return desc
+    else:
+        if update.effective_chat:
+            tag = "help"
+            help_text = "Available commands are:\n"
+            keyboard = []
+            for command in commands:
+                help_text += f'{command["desc"]}\n'
+                keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            text="/" + command["command"], callback_data=None
+                        )
+                    ]
+                )
+            reply_markup = ReplyKeyboardMarkup(
+                keyboard=keyboard,  # type: ignore
+                resize_keyboard=True,
+                one_time_keyboard=True,
+                input_field_placeholder="choose the command",
+            )
+            await context.bot.send_message(
+                chat_id=chat_id, text=help_text, reply_markup=reply_markup
+            )
+        return None
+
+
+@restricted
+async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None | str:
+    if update is None and context is None and chat_id == 11111:
+        desc = "List all states"
+        return desc
+    else:
+        if update.effective_chat:
+            tag = inspect.currentframe().f_code.co_name  # type: ignore
+            url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}"
+            data = await queryUrl(url=url)
+            if data:
+                dataInJson = data.json()
+                states = []
+                for i in dataInJson["presets"]:
+                    states.append(i["name"])
+                if len(states) > 0:
+                    buttons = []
+                    for state in states:
+                        buttons.append(
+                            [
+                                InlineKeyboardButton(
+                                    text=state,
+                                    callback_data={
+                                        "tag": tag,
+                                        "choice": state,
+                                    },
+                                )
+                            ]
+                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Select one state to activate:",
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    logger.debug(msg="No states found \u26A0\ufe0f")
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="No states found \u26A0\ufe0f"
+                    )
+        return None
+
+
+@restricted
+async def monitors_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int
+) -> None | str:
+    if update is None and context is None and chat_id == 11111:
+        desc = "List all monitors"
+        return desc
+    else:
+        if update.effective_chat:
+            tag = inspect.currentframe().f_code.co_name  # type: ignore
+            url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitor/{REQ_SHINOBI_GROUP_KEY['data']}"
+            data = await queryUrl(url=url)
+            if data:
+                dataInJson = data.json()
+                monitors = []
+                for i in dataInJson:
+                    monitors.append({"name": i["name"], "id": i["mid"]})
+                if len(monitors) > 0:
+                    buttons = []
+                    for monitor in monitors:
+                        buttons.append(
+                            [
+                                InlineKeyboardButton(
+                                    text=monitor["name"],
+                                    callback_data={
+                                        "tag": tag,
+                                        "mid": monitor["id"],
+                                        "choice": monitor["name"],
+                                    },
+                                )
+                            ]
+                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Select one monitor:",
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    logger.debug(msg="No monitors found \u26A0\ufe0f")
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="No monitors found \u26A0\ufe0f"
+                    )
+        return None
+
+
+@restricted
+async def BOTsettings_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int
+) -> None | str:
+    if update is None and context is None and chat_id == 11111:
+        desc = "Edit shinogramma settings"
+        return desc
+    else:
+        if update.effective_chat:
+            tag = inspect.currentframe().f_code.co_name  # type: ignore
+            keyboard = [
                 [
                     InlineKeyboardButton(
-                        text="/" + command["command"], callback_data=None
-                    )
+                        text="Terminate",
+                        callback_data={
+                            "tag": tag,
+                            "choice": "terminate",
+                        },
+                    ),
+                    InlineKeyboardButton(
+                        text="Reboot",
+                        callback_data={
+                            "tag": tag,
+                            "choice": "reboot",
+                        },
+                    ),
                 ]
-            )
-        reply_markup = ReplyKeyboardMarkup(
-            keyboard=keyboard,  # type: ignore
-            resize_keyboard=True,
-            one_time_keyboard=True,
-            input_field_placeholder="choose the command",
-        )
-        await context.bot.send_message(
-            chat_id=chat_id, text=help_text, reply_markup=reply_markup
-        )
-
-
-@restricted
-@send_action(action=constants.ChatAction.TYPING)
-async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat:
-        chat_id = update.effective_chat.id
-        desc = "List all states"
-        tag = inspect.currentframe().f_code.co_name  # type: ignore
-        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitorStates/{REQ_SHINOBI_GROUP_KEY['data']}"
-        data = await queryUrl(url=url)
-        if data:
-            dataInJson = data.json()
-            states = []
-            for i in dataInJson["presets"]:
-                states.append(i["name"])
-            if len(states) > 0:
-                buttons = []
-                for state in states:
-                    buttons.append(
-                        [
-                            InlineKeyboardButton(
-                                text=state,
-                                callback_data={
-                                    "tag": tag,
-                                    "choice": state,
-                                },
-                            )
-                        ]
-                    )
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text="Select one state to activate:",
-                    reply_markup=reply_markup,
-                )
-            else:
-                logger.debug(msg="No states found \u26A0\ufe0f")
-                await context.bot.send_message(
-                    chat_id=chat_id, text="No states found \u26A0\ufe0f"
-                )
-
-
-@restricted
-@send_action(action=constants.ChatAction.TYPING)
-async def monitors_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat:
-        chat_id = update.effective_chat.id
-        desc = "List all monitors"
-        tag = inspect.currentframe().f_code.co_name  # type: ignore
-        url = f"{REQ_SHINOBI_BASE_URL['data']}:{REQ_SHINOBI_PORT['data']}/{REQ_SHINOBI_API_KEY['data']}/monitor/{REQ_SHINOBI_GROUP_KEY['data']}"
-        data = await queryUrl(url=url)
-        if data:
-            dataInJson = data.json()
-            monitors = []
-            for i in dataInJson:
-                monitors.append({"name": i["name"], "id": i["mid"]})
-            if len(monitors) > 0:
-                buttons = []
-                for monitor in monitors:
-                    buttons.append(
-                        [
-                            InlineKeyboardButton(
-                                text=monitor["name"],
-                                callback_data={
-                                    "tag": tag,
-                                    "mid": monitor["id"],
-                                    "choice": monitor["name"],
-                                },
-                            )
-                        ]
-                    )
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text="Select one monitor:",
-                    reply_markup=reply_markup,
-                )
-            else:
-                logger.debug(msg="No monitors found \u26A0\ufe0f")
-                await context.bot.send_message(
-                    chat_id=chat_id, text="No monitors found \u26A0\ufe0f"
-                )
-
-
-@restricted
-@send_action(action=constants.ChatAction.TYPING)
-async def BOTsettings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat:
-        chat_id = update.effective_chat.id
-        desc = "Edit shinogramma settings"
-        tag = inspect.currentframe().f_code.co_name  # type: ignore
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    text="Terminate",
-                    callback_data={
-                        "tag": tag,
-                        "choice": "terminate",
-                    },
-                ),
-                InlineKeyboardButton(
-                    text="Reboot",
-                    callback_data={
-                        "tag": tag,
-                        "choice": "reboot",
-                    },
-                ),
             ]
-        ]
-        reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-        await context.bot.send_message(
-            chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
-        )
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+            await context.bot.send_message(
+                chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
+            )
+        return None
 
 
 # End Telegram/Bot commands definition:
@@ -536,18 +552,19 @@ async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
                     await thisMonitor.configure(key, value)
 
 
-def checkVarInFunction(func: Callable, varName: str) -> str | None:
-    tree = ast.parse(source=inspect.getsource(object=func))
-    for node in ast.walk(node=tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == varName:
-                    value = ast.literal_eval(node_or_string=node.value)
-                    return value
-    return None
+# def checkVarInFunction(func: Callable, varName: str) -> str | None:
+#     source = inspect.getsource(object=func)
+#     tree = ast.parse(source=source)
+#     for node in ast.walk(node=tree):
+#         if isinstance(node, ast.Assign):
+#             for target in node.targets:
+#                 if isinstance(target, ast.Name) and target.id == varName:
+#                     value = ast.literal_eval(node_or_string=node.value)
+#                     return value
+#     return None
 
 
-def parseForCommands() -> None:
+def parseForCommands():
     frame = inspect.currentframe()
     assert frame is not None
     command_functions = [
@@ -555,15 +572,25 @@ def parseForCommands() -> None:
         for name, obj in frame.f_globals.items()
         if inspect.isfunction(object=obj) and name.endswith("_command")
     ]
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop=loop)
     for function in command_functions:
-        desc = checkVarInFunction(func=function, varName="desc")
+        try:
+            io = loop.run_until_complete(future=function(update=None, context=None))
+            print(f"func is: {function.__name__}")
+            # desc = function.__getattribute__("desc")
+            print(io)
+        except:
+            print("niente")
+        # desc = checkVarInFunction(func=function, varName="desc")
         command = function.__name__.split(sep="_")[0]
         name = function.__name__
-        if not desc:
-            logger.warning(msg=f"{function.__name__} function has no description...")
-            fullDesc = "/" + command
-        else:
-            fullDesc = "/" + command + " - " + desc
+        # if not desc:
+        #     logger.warning(msg=f"{function.__name__} function has no description...")
+        #     fullDesc = "/" + command
+        # else:
+        #     fullDesc = "/" + command + " - " + desc
+        fullDesc = "/" + command
         data = {"func": function, "name": name, "command": command, "desc": fullDesc}
         commands.append(data)
     commandJustForLog = ", ".join(c["command"] for i, c in enumerate(iterable=commands))
