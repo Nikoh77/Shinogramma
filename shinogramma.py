@@ -20,7 +20,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
-    InlineQueryResultVideo,
     constants,
 )
 from functools import wraps
@@ -530,7 +529,9 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
 
 
 @restricted
-async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
+async def handleTextConfigure(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id = None
+):
     if update.effective_message is not None:
         user_text = update.effective_message.text
         logger.debug(msg=f"User wrote: {user_text}")
@@ -550,6 +551,7 @@ async def handleTextConfigure(update: Update, context: CallbackContext) -> None:
                     context.user_data.pop("key")
                     value = user_text
                     await thisMonitor.configure(key, value)
+
 
 def parseForCommands():
     frame = inspect.currentframe()

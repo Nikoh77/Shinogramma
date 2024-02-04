@@ -1,6 +1,7 @@
 import logging
 import requests
 import json  # for debug only, can be removed when all work fine...
+import http.client
 
 logger = logging.getLogger(name=__name__)
 
@@ -13,9 +14,9 @@ async def queryUrl(
         response: requests.Response
         try:
             if method == ("get" or "delete"):
-                response = http_method(url)
+                response = http_method(url=url, data=data)
             else:
-                response = http_method(url, json=data)
+                response = http_method(url=url, data=data)
             if response.status_code != 200:
                 logger.info(
                     msg=f"Error {response.status_code} something went wrong, request error."

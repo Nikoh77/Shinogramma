@@ -188,8 +188,8 @@ class Monitor:
             if key in details.keys():
                 details[key] = value
                 dataInJson["details"] = details
-                endpoint = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/configureMonitor/{self.GROUP_KEY}/{self.MID}"
-                method = "post"
+                endpoint = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/configureMonitor/{self.GROUP_KEY}/{self.MID}?data="
+                method = "put"
                 debug = True
                 response = await queryUrl(
                     url=endpoint,
