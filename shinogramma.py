@@ -26,29 +26,31 @@ from functools import wraps
 import colorlog
 import logging
 import inspect
-from typing import Callable, Any, Coroutine
+from typing import Callable, Any
 from httpQueryUrl import queryUrl
 from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
 from video import Video
+from notify import HttpServer
 
-"""
-Below import is functional to pipreqs which does not add python-telegram-bot[callback-data] 
-to the requirements.txt file
-"""
-# Defining root constants
+
 """
 Below constant is required to set the log level only for some modules directly involved by
 this application and avoid seeing the debug of all modules in the tree.
-If you want to see the logs of other modules at the "REQ_SHINOGRAMMA_LOGLEVEL" level add
-them to the list below
+Logs follow the settings given by their developers, if you want to raise or lower
+the log level add the module to the list below
 """
-MODULES_LOGGERS: list[str] = ["__main__", "httpQueryUrl", "settings", "monitor"]
+MODULES_LOGGERS: list[str] = [
+    "__main__",
+    "httpQueryUrl",
+    "settings",
+    "monitor",
+    "notify"
+]
 CONFIG_FILE: Path = Path("config.ini")
 TELEGRAM_CHAT_ID: list[int] = []
-application: Application
-started = False
+APPLICATION: Application
 """
 Below required data for running this software, are defined as a constants.
 Starting from these constants the variable `neededSettings` is created; she is used by
@@ -112,6 +114,7 @@ for i in list(globals().keys()):
 logger = colorlog.getLogger(name=__name__)
 colorlog.basicConfig(
     format="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
+    # level=logging.WARNING,
     datefmt="%Y-%m-%d %H:%M:%S",
     reset=True,
     log_colors={
@@ -240,6 +243,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE, chat
                     text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A",
                     reply_markup=reply_markup,
                 )
+            # httpServer = threading.Thread(target=startHttpServer, args=("Hello", 42))
+            # httpServer.start()
         return None
 
 
@@ -525,7 +530,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             chat_id=chat_id, text="Shinogramma terminated"
                         )
                         global application
-                        application.stop_running()
+                        APPLICATION.stop_running()
 
 
 @restricted
@@ -578,16 +583,16 @@ def parseForCommands():
     logger.debug(msg=f"List of active commands: {commandJustForLog}")
 
 def startBot() -> None:
-    global application
+    global APPLICATION
     try:
-        import cachetools
+        import cachetools  # Required by pipreqs in the place of python-telegram-bot[callback-data]
     except ImportError:
         logger.critical(msg="Cachetools module not found")
         return
     if REQ_SHINOGRAMMA_PERSISTENCE["data"]:
-        application = startWithPersistence()
+        APPLICATION = startWithPersistence()
     else:
-        application = startWithoutPersistence()
+        APPLICATION = startWithoutPersistence()
     callback_query_handler = CallbackQueryHandler(callback=callback_handler)
     text_handler = MessageHandler(
         filters=filters.TEXT & ~filters.COMMAND,
@@ -600,9 +605,9 @@ def startBot() -> None:
             commandName: str = command["command"]
             commandFunc: Callable[..., Any] = command["func"]
             handlers.append(CommandHandler(command=commandName, callback=commandFunc))
-    application.add_handlers(handlers=handlers)
+    APPLICATION.add_handlers(handlers=handlers)
     logger.info(msg="ShinogrammaBot Up and running")
-    application.run_polling(drop_pending_updates=True)
+    APPLICATION.run_polling(drop_pending_updates=True)
     return
 
 
@@ -647,5 +652,11 @@ if __name__ == "__main__":
             msg="Chat_id not defined, this could be very dangerous, continuing..."
         )
     parseForCommands()
+
+    
+    notifyServer = HttpServer(telegramApiKey=REQ_TELEGRAM_API_KEY["data"])
+    notifyServer.startHttpServer()
+    
     startBot()
+
     logger.info(msg="ShinogrammaBot terminated")
