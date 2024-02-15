@@ -1,57 +1,72 @@
-from telegram import Bot
-from flask import Flask
-from werkzeug.serving import ThreadedWSGIServer
+from fastapi import FastAPI, HTTPException
+from settings import Url
+from telegram.ext import ApplicationBuilder
 import logging
 import threading
-import asgiref  # Required by pipreqs in the place of Flask[async]
+from httpQueryUrl import queryUrl
+import hashlib
+import time
 
-logger = logger = logging.getLogger(name=__name__)
+logger = logging.getLogger(name=__name__)
 
+'''
+When jpeg api is not enabled for a specific monitor, shinobi sends an image as
+placeholder, below a constant with the value of its hash
+'''
+PLACEHOLDERMD5 = "2a7127c16b2389474c41bc112618462f"
 
-class HttpServer:
-    """
-    It's a simple http server to receive webhook calls
-    """
-
+class WebhookServer():
     def __init__(
         self,
         telegramApiKey: str,
+        baseUrl: Url,
+        port: int,
+        shinobiApiKey: str,
+        groupKey: str,
     ) -> None:
-        """
-        Constructor of the class.
+        self.app = FastAPI()
+        self.APPLICATION = ApplicationBuilder().token(token=telegramApiKey).build()
+        self.snapshotUrl = "".join([baseUrl, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
 
-        Arguments:
-        - telegramApiKey (str): Needed to send notifications:
-        """
-        self.TELEGRAM_API_KEY = telegramApiKey
-        # self.BOT = Bot(token=self.TELEGRAM_API_KEY)
-        self.SERVER: Flask = Flask(import_name=__name__)
-        self.SERVER.add_url_rule(
-            rule="/send_message", view_func=self.send_message, methods=["GET"]
-        )
-        self.HTTPSERVER = threading.Thread(target=self.startHttpServer)
+        @self.app.get(path="/send_message")
+        async def send_message(
+            chat_id: int = 73216475,
+            mid: str | None = None,
+            query: str = "text",
+            message: str = "messaggio di default",
+        ):
+            print("ciao")
+            if query == "text":
+                await self.APPLICATION.bot.send_message(chat_id=chat_id, text=message)
+            elif query == "image":
+                if not mid:
+                    raise HTTPException(
+                        status_code=400, detail="Percorso immagine non fornito"
+                    )
+                imagePath = "".join([self.snapshotUrl, "/", mid, "/s.jpg"])
+                response = await queryUrl(url=imagePath)
+                if response is not None:
+                    md5 = self.calculate_md5(content=response.content)
+                    if md5 != PLACEHOLDERMD5:
+                        avoidCacheUrl = str(object=int(time.time()))
+                        snapshotUrl = imagePath + "?" + avoidCacheUrl
+                        await self.APPLICATION.bot.send_photo(
+                            chat_id=chat_id, photo=snapshotUrl
+                        )
+            return {"message": "Messaggio inviato"}
 
-    # def startHttpServer(self) -> bool:
-    #     try:
-    #         http_server = ThreadedWSGIServer(host="127.0.0.1", port=5000, app=self.SERVER)
-    #         http_server.serve_forever()
-    #         logger.debug(msg="HTTP Serevr started")
-    #         return True
-    #     except Exception as e:
-    #         logger.warning(
-    #             msg=f"Error starting HTTP Server: {e}\n alarm notifications will not work"
-    #         )
-    #         return False
+    def calculate_md5(self, content) -> str:
+        md5Hash = hashlib.md5()
+        md5Hash.update(content)
+        return md5Hash.hexdigest()
 
-    # @self.SERVER.route(self, rule="/send_message", methods=["GET"])
-    # async def send_message(self):
-    #     # message = request.args.get("message", "Questo è un messaggio di default.")
-    #     await self.BOT.send_message(chat_id=73216475, text="message")
-    #     return "Messaggio inviato"
+    def run_server(self):
+        try:
+            import uvicorn
+            uvicorn.run(app=self.app, host="0.0.0.0", port=5001, log_level="debug")
+        except Exception as e:
+            logger.warning(msg=f"Error running HTTP Server: {e}")
 
-    async def send_message(self):
-        # message = request.args.get("message", "Questo è un messaggio di default.")
-        await self.BOT.send_message(chat_id=73216475, text="message")
-        return "Messaggio inviato"
-
-# httpServer = threading.Thread(target=startHttpServer)
+    def start(self):
+        self.server_thread = threading.Thread(target=self.run_server, daemon=True)
+        self.server_thread.start()

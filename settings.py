@@ -11,7 +11,7 @@ logger = logger = logging.getLogger(name=__name__)
 
 class Url(str):
     def __new__(cls, value):
-        return super(Url, cls).__new__(cls, object=value)
+        return super(Url, cls).__new__(cls=cls, object=value)
 
 
 class IniSettings:

@@ -32,7 +32,6 @@ from settings import IniSettings, Url
 from monitor import Monitor
 from pathlib import Path
 from video import Video
-from notify import HttpServer
 
 
 """
@@ -50,7 +49,7 @@ MODULES_LOGGERS: list[str] = [
 ]
 CONFIG_FILE: Path = Path("config.ini")
 TELEGRAM_CHAT_ID: list[int] = []
-APPLICATION: Application
+APPLICATION: Application | None = None
 """
 Below required data for running this software, are defined as a constants.
 Starting from these constants the variable `neededSettings` is created; she is used by
@@ -90,6 +89,7 @@ REQ_SHINOBI_BASE_URL: dict = {"data": None, "typeOf": Url}
 REQ_SHINOBI_PORT: dict = {"data": 8080, "typeOf": int}
 REQ_SHINOGRAMMA_LOGLEVEL: dict = {"data": "info", "typeOf": str}
 REQ_SHINOGRAMMA_PERSISTENCE: dict = {"data": False, "typeOf": bool}
+REQ_SHINOGRAMMA_APISERVER: dict = {"data": False, "typeOf": bool}
 
 # Defining root variables
 commands: list = []
@@ -530,7 +530,8 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             chat_id=chat_id, text="Shinogramma terminated"
                         )
                         global application
-                        APPLICATION.stop_running()
+                        if APPLICATION is not None:
+                            APPLICATION.stop_running()
 
 
 @restricted
@@ -582,13 +583,13 @@ def parseForCommands():
     commandJustForLog = ", ".join(c["command"] for i, c in enumerate(iterable=commands))
     logger.debug(msg=f"List of active commands: {commandJustForLog}")
 
-def startBot() -> None:
+def buildApp() -> bool:
     global APPLICATION
     try:
         import cachetools  # Required by pipreqs in the place of python-telegram-bot[callback-data]
     except ImportError:
         logger.critical(msg="Cachetools module not found")
-        return
+        return False
     if REQ_SHINOGRAMMA_PERSISTENCE["data"]:
         APPLICATION = startWithPersistence()
     else:
@@ -605,10 +606,10 @@ def startBot() -> None:
             commandName: str = command["command"]
             commandFunc: Callable[..., Any] = command["func"]
             handlers.append(CommandHandler(command=commandName, callback=commandFunc))
-    APPLICATION.add_handlers(handlers=handlers)
-    logger.info(msg="ShinogrammaBot Up and running")
-    APPLICATION.run_polling(drop_pending_updates=True)
-    return
+    if APPLICATION is not None:
+        APPLICATION.add_handlers(handlers=handlers)
+        return True
+    return False
 
 
 def startWithPersistence():
@@ -639,6 +640,15 @@ def startWithoutPersistence():
     )
     return application
 
+def notifyServerStart():
+    SERVER = WebhookServer(
+        telegramApiKey=REQ_TELEGRAM_API_KEY["data"], 
+        baseUrl=REQ_SHINOBI_BASE_URL["data"],
+        port=REQ_SHINOBI_PORT["data"],
+        shinobiApiKey=REQ_SHINOBI_API_KEY["data"],
+        groupKey=REQ_SHINOBI_GROUP_KEY["data"],
+    )
+    SERVER.start()
 
 if __name__ == "__main__":
     if not buildSettings(data=settings.iniRead()):
@@ -652,11 +662,15 @@ if __name__ == "__main__":
             msg="Chat_id not defined, this could be very dangerous, continuing..."
         )
     parseForCommands()
-
-    
-    notifyServer = HttpServer(telegramApiKey=REQ_TELEGRAM_API_KEY["data"])
-    notifyServer.startHttpServer()
-    
-    startBot()
-
+    if not buildApp():
+        logger.critical(
+            msg="Error building BOT app, exiting..."
+        )
+        raise SystemExit
+    logger.info(msg="ShinogrammaBot Up and running")
+    if APPLICATION is not None:
+        if REQ_SHINOGRAMMA_APISERVER["data"]:
+            from notify import WebhookServer
+            notifyServerStart()
+        APPLICATION.run_polling(drop_pending_updates=True)
     logger.info(msg="ShinogrammaBot terminated")
