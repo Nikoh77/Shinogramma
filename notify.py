@@ -28,7 +28,7 @@ class WebhookServer():
         self.APPLICATION = ApplicationBuilder().token(token=telegramApiKey).build()
         self.snapshotUrl = "".join([baseUrl, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
 
-        @self.app.get(path="/send_message")
+        @self.app.post(path="/send_message")
         async def send_message(
             chat_id: int = 73216475,
             mid: str | None = None,
@@ -63,7 +63,12 @@ class WebhookServer():
     def run_server(self):
         try:
             import uvicorn
-            uvicorn.run(app=self.app, host="0.0.0.0", port=5001, log_level="debug")
+            uvicorn.run(
+                app=self.app,
+                host="0.0.0.0",
+                port=5001,
+                log_level="trace",
+            )
         except Exception as e:
             logger.warning(msg=f"Error running HTTP Server: {e}")
 

@@ -669,8 +669,8 @@ if __name__ == "__main__":
         raise SystemExit
     logger.info(msg="ShinogrammaBot Up and running")
     if APPLICATION is not None:
-        if REQ_SHINOGRAMMA_APISERVER["data"]:
-            from notify import WebhookServer
-            notifyServerStart()
+        # if REQ_SHINOGRAMMA_APISERVER["data"]:
+        #     from notify import WebhookServer
+        #     notifyServerStart()
         APPLICATION.run_polling(drop_pending_updates=True)
     logger.info(msg="ShinogrammaBot terminated")
