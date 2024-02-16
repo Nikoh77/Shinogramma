@@ -640,15 +640,15 @@ def startWithoutPersistence():
     )
     return application
 
-def notifyServerStart():
-    SERVER = WebhookServer(
-        telegramApiKey=REQ_TELEGRAM_API_KEY["data"], 
-        baseUrl=REQ_SHINOBI_BASE_URL["data"],
-        port=REQ_SHINOBI_PORT["data"],
-        shinobiApiKey=REQ_SHINOBI_API_KEY["data"],
-        groupKey=REQ_SHINOBI_GROUP_KEY["data"],
-    )
-    SERVER.start()
+# def notifyServerStart():
+#     SERVER = WebhookServer(
+#         telegramApiKey=REQ_TELEGRAM_API_KEY["data"], 
+#         baseUrl=REQ_SHINOBI_BASE_URL["data"],
+#         port=REQ_SHINOBI_PORT["data"],
+#         shinobiApiKey=REQ_SHINOBI_API_KEY["data"],
+#         groupKey=REQ_SHINOBI_GROUP_KEY["data"],
+#     )
+#     SERVER.start()
 
 if __name__ == "__main__":
     if not buildSettings(data=settings.iniRead()):
