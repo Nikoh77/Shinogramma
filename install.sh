@@ -34,14 +34,9 @@ if ! command -v pip3 &> /dev/null; then
     exit 1
 fi
 
-# Specify the required Python modules
-required_modules=("requests" "python-telegram-bot" "m3u8" "humanize")
-
-# Install the required Python modules
+# Install the required Python modules from requirements.txt
 echo "Installing the required Python modules..."
-for module in "${required_modules[@]}"; do
-    pip3 install "$module"
-done
+pip3 install -r requirements.txt
 
 # Check if the installation was successful
 if [ $? -eq 0 ]; then
@@ -52,3 +47,4 @@ else
 fi
 
 exit 0
+
