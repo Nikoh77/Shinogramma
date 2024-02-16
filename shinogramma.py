@@ -338,7 +338,12 @@ async def monitors_command(
                 dataInJson = data.json()
                 monitors = []
                 for i in dataInJson:
-                    monitors.append({"name": i["name"], "id": i["mid"]})
+                    var = f"MONITOR_{i['mid']}".upper()
+                    if var in globals().keys():
+                        if chat_id == int(globals()[var]):
+                            monitors.append({"name": i["name"], "id": i["mid"]})
+                    else:
+                        monitors.append({"name": i["name"], "id": i["mid"]})
                 if len(monitors) > 0:
                     buttons = []
                     for monitor in monitors:
@@ -642,7 +647,7 @@ def startWithoutPersistence():
 
 # def notifyServerStart():
 #     SERVER = WebhookServer(
-#         telegramApiKey=REQ_TELEGRAM_API_KEY["data"], 
+#         telegramApiKey=REQ_TELEGRAM_API_KEY["data"],
 #         baseUrl=REQ_SHINOBI_BASE_URL["data"],
 #         port=REQ_SHINOBI_PORT["data"],
 #         shinobiApiKey=REQ_SHINOBI_API_KEY["data"],
