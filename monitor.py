@@ -29,34 +29,35 @@ class Monitor:
 
     async def getSnapshot(self) -> bool:
         HERE = inspect.currentframe()
-        assert HERE is not None
-        data = await queryUrl(url=self.url)
-        if data:
-            dataInJson = data.json()
-            try:
-                if json.loads(s=dataInJson[0]["details"])["snap"] == "1":
-                    await self.query.answer("Cooking your snapshot...\U0001F373")
-                    baseurl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/jpeg/{self.GROUP_KEY}/{self.MID}/s.jpg"
-                    avoidCacheUrl = str(object=int(time.time()))
-                    snapshotUrl = baseurl + "?" + avoidCacheUrl
-                    if await self.CONTEXT.bot.send_photo(
-                        chat_id=self.CHAT_ID, photo=snapshotUrl
-                    ):
-                        logger.debug(msg="Ok, snaphot sended...")
-                        return True
-                else:
-                    logger.info(msg="Jpeg API not active on this monitor")
-                    await self.query.answer(
-                        text="Jpeg API not active on this monitor \u26A0\ufe0f",
-                        show_alert=True,
-                    )
-            except Exception as e:
-                if isinstance(e, error.TelegramError):
-                    logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-                else:
-                    raise e
-        else:
-            logger.error(msg="Error something went wrong requesting snapshot")
+        if self.verifyForbidden(func=HERE):
+            assert HERE is not None
+            data = await queryUrl(url=self.url)
+            if data:
+                dataInJson = data.json()
+                try:
+                    if json.loads(s=dataInJson[0]["details"])["snap"] == "1":
+                        await self.query.answer("Cooking your snapshot...\U0001F373")
+                        baseurl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/jpeg/{self.GROUP_KEY}/{self.MID}/s.jpg"
+                        avoidCacheUrl = str(object=int(time.time()))
+                        snapshotUrl = baseurl + "?" + avoidCacheUrl
+                        if await self.CONTEXT.bot.send_photo(
+                            chat_id=self.CHAT_ID, photo=snapshotUrl
+                        ):
+                            logger.debug(msg="Ok, snaphot sended...")
+                            return True
+                    else:
+                        logger.info(msg="Jpeg API not active on this monitor")
+                        await self.query.answer(
+                            text="Jpeg API not active on this monitor \u26A0\ufe0f",
+                            show_alert=True,
+                        )
+                except Exception as e:
+                    if isinstance(e, error.TelegramError):
+                        logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
+                    else:
+                        raise e
+            else:
+                logger.error(msg="Error something went wrong requesting snapshot")
         return False
 
     async def getStream(self) -> bool:
@@ -219,3 +220,7 @@ class Monitor:
         else:
             logger.error(msg="Error something went wrong requesting configuration")
         return False
+    
+    def verifyForbidden(self, func):
+        
+        pass

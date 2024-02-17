@@ -165,10 +165,11 @@ def buildSettings(data) -> bool:
                 globals()[varName].update({"data": v})
             else:
                 varName = i.upper()
-                if (
-                    varName == "TELEGRAM_CHAT_ID"
-                ):  # If chat_id (comma separated) are defined
+                # below the settings (separated by comma) that need to be transformed into lists
+                if varName == "TELEGRAM_CHAT_ID" or varName.startswith("BANS"):
                     for i in v.split(sep=","):
+                        if not varName in globals().keys():
+                            globals()[varName] = []
                         globals()[varName].append(int(i.strip()))
                 else:
                     globals()[varName] = v
@@ -293,7 +294,12 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, cha
                 dataInJson = data.json()
                 states = []
                 for i in dataInJson["presets"]:
-                    states.append(i["name"])
+                    var = f"BANS_STATE_{i['name']}".upper()
+                    if var in globals().keys():
+                        if chat_id != int(globals()[var]):
+                            states.append(i["name"])
+                    else:
+                        states.append(i["name"])
                 if len(states) > 0:
                     buttons = []
                     for state in states:
@@ -338,9 +344,9 @@ async def monitors_command(
                 dataInJson = data.json()
                 monitors = []
                 for i in dataInJson:
-                    var = f"MONITOR_{i['mid']}".upper()
+                    var = f"BANS_MID_{i['mid']}".upper()
                     if var in globals().keys():
-                        if chat_id == int(globals()[var]):
+                        if chat_id not in globals()[var]:
                             monitors.append({"name": i["name"], "id": i["mid"]})
                     else:
                         monitors.append({"name": i["name"], "id": i["mid"]})
@@ -381,30 +387,33 @@ async def BOTsettings_command(
         desc = "Edit shinogramma settings"
         return desc
     else:
-        if update.effective_chat:
-            tag = inspect.currentframe().f_code.co_name  # type: ignore
-            keyboard = [
-                [
-                    InlineKeyboardButton(
-                        text="Terminate",
-                        callback_data={
-                            "tag": tag,
-                            "choice": "terminate",
-                        },
-                    ),
-                    InlineKeyboardButton(
-                        text="Reboot",
-                        callback_data={
-                            "tag": tag,
-                            "choice": "reboot",
-                        },
-                    ),
-                ]
-            ]
-            reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-            await context.bot.send_message(
-                chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
-            )
+        var = "BANS_SETTINGS"
+        if var in globals().keys():
+            if chat_id != int(globals()[var]):
+                if update.effective_chat:
+                    tag = inspect.currentframe().f_code.co_name  # type: ignore
+                    keyboard = [
+                        [
+                            InlineKeyboardButton(
+                                text="Terminate",
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": "terminate",
+                                },
+                            ),
+                            InlineKeyboardButton(
+                                text="Reboot",
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": "reboot",
+                                },
+                            ),
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
+                    )
         return None
 
 
