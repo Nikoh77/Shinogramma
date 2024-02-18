@@ -110,22 +110,25 @@ class IniSettings:
             options = self.__config.items(section=section)
             for option, value in options:
                 if value and value != "":
-                    for optionInNeeded in self.__neededSettings[section]:
-                        if optionInNeeded["name"] == option:
-                            convertedValue = self.__verifyTypeOf(
-                                value=value,
-                                typeOf=optionInNeeded["typeOf"],
-                                name=optionInNeeded["name"],
-                            )
-                            if convertedValue is not None:
-                                data[option] = convertedValue
-                            else:
-                                logger.error(
-                                    msg=f"TypeOf check failed in {section}->{option}->{value}"
+                    if section in self.__neededSettings.keys():
+                        for optionInNeeded in self.__neededSettings[section]:
+                            if optionInNeeded["name"] == option:
+                                convertedValue = self.__verifyTypeOf(
+                                    value=value,
+                                    typeOf=optionInNeeded["typeOf"],
+                                    name=optionInNeeded["name"],
                                 )
-                                return False
-                        else:
-                            data[option] = value
+                                if convertedValue is not None:
+                                    data[option] = convertedValue
+                                else:
+                                    logger.error(
+                                        msg=f"TypeOf check failed in {section}->{option}->{value}"
+                                    )
+                                    return False
+                            else:
+                                data[option] = value
+                    else:
+                        data[option] = value
                 settings[section] = data
         if settings:
             return self.__buildSettings(settings=settings)
