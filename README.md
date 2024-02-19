@@ -13,7 +13,7 @@ Clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
 (Optional but recommended...) Create a virtual environment\
 Just install required modules with ```pip install -r requirements.txt```\
 ... or execute install.sh (after giving him exec rights)\
-and start it with ```cd Shinogramma && python3 shinogramma.py```\
+and start it with ```cd Shinogramma && python3 shinogramma.py```
 
 I highly recommend a server installation, meaning the bot runs as a service rather than a user application. If you're a Linux user, I suggest installing it without a desktop environment and configuring it as a service managed by systemd, but this goes beyond the scope of this writing.
 
@@ -66,6 +66,7 @@ Feel free to expand my code with new features or simply clean it up and/or make 
 ### FINAL NOTES:
 I already implemented the code for:
 * monitors configuration through conversation/chat, but I need better API documentation.
-* alerts/notifications through Shinogramma (then excluding Shinobi's telegram implementation), I need that Shinobi's dev fix a bug with POST/PUT method for webhook calls.\
+* alerts/notifications through Shinogramma (then excluding Shinobi's telegram implementation), I need that Shinobi's dev fix a bug with POST/PUT method for webhook calls.
+
 For these reasons that are beyond my control, Shinogramma lacks these two features.\
 I hope to be able to release the final and complete version soon...
