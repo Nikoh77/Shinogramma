@@ -432,7 +432,7 @@ async def monitors_subcommand(
         for choice in choices:
             var = f"BANS_DO_{choice}".upper()
             if var in globals().keys():
-                if chat_id not in globals()[var]:
+                if chat_id in globals()[var]:
                     continue
             # else:
             buttons.append(
