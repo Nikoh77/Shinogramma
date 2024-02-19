@@ -165,10 +165,11 @@ def buildSettings(data) -> bool:
                 globals()[varName].update({"data": v})
             else:
                 varName = i.upper()
-                if (
-                    varName == "TELEGRAM_CHAT_ID"
-                ):  # If chat_id (comma separated) are defined
+                # below the settings (separated by comma) that need to be transformed into lists
+                if varName == "TELEGRAM_CHAT_ID" or varName.startswith("BANS"):
                     for i in v.split(sep=","):
+                        if not varName in globals().keys():
+                            globals()[varName] = []
                         globals()[varName].append(int(i.strip()))
                 else:
                     globals()[varName] = v
@@ -293,7 +294,12 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, cha
                 dataInJson = data.json()
                 states = []
                 for i in dataInJson["presets"]:
-                    states.append(i["name"])
+                    var = f"BANS_STATE_{i['name']}".upper()
+                    if var in globals().keys():
+                        if chat_id in globals()[var]:
+                            continue
+                    else:
+                        states.append(i["name"])
                 if len(states) > 0:
                     buttons = []
                     for state in states:
@@ -338,7 +344,12 @@ async def monitors_command(
                 dataInJson = data.json()
                 monitors = []
                 for i in dataInJson:
-                    monitors.append({"name": i["name"], "id": i["mid"]})
+                    var = f"BANS_MID_{i['mid']}".upper()
+                    if var in globals().keys():
+                        if chat_id in globals()[var]:
+                            continue
+                    else:
+                        monitors.append({"name": i["name"], "id": i["mid"]})
                 if len(monitors) > 0:
                     buttons = []
                     for monitor in monitors:
@@ -376,30 +387,33 @@ async def BOTsettings_command(
         desc = "Edit shinogramma settings"
         return desc
     else:
-        if update.effective_chat:
-            tag = inspect.currentframe().f_code.co_name  # type: ignore
-            keyboard = [
-                [
-                    InlineKeyboardButton(
-                        text="Terminate",
-                        callback_data={
-                            "tag": tag,
-                            "choice": "terminate",
-                        },
-                    ),
-                    InlineKeyboardButton(
-                        text="Reboot",
-                        callback_data={
-                            "tag": tag,
-                            "choice": "reboot",
-                        },
-                    ),
-                ]
-            ]
-            reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-            await context.bot.send_message(
-                chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
-            )
+        var = "BANS_SETTINGS"
+        if var in globals().keys():
+            if chat_id != int(globals()[var]):
+                if update.effective_chat:
+                    tag = inspect.currentframe().f_code.co_name  # type: ignore
+                    keyboard = [
+                        [
+                            InlineKeyboardButton(
+                                text="Terminate",
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": "terminate",
+                                },
+                            ),
+                            InlineKeyboardButton(
+                                text="Reboot",
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": "reboot",
+                                },
+                            ),
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
+                    )
         return None
 
 
@@ -416,25 +430,31 @@ async def monitors_subcommand(
         choices = ["snapshot", "stream", "videos", "map", "configure"]
         buttons = []
         for choice in choices:
-            buttons.append(
-                [
-                    InlineKeyboardButton(
-                        text=choice,
-                        callback_data={
-                            "tag": tag,
-                            "choice": choice,
-                            "mid": mid,
-                        },
-                    )
-                ]
+            var = f"BANS_DO_{choice}".upper()
+            if var in globals().keys():
+                if chat_id not in globals()[var]:
+                    continue
+            else:
+                buttons.append(
+                    [
+                        InlineKeyboardButton(
+                            text=choice,
+                            callback_data={
+                                "tag": tag,
+                                "choice": choice,
+                                "mid": mid,
+                            },
+                        )
+                    ]
+                )
+        if len(buttons) > 0:
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"<b>{name}</b>\nWhat do you want from this monitor?",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
             )
-        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"<b>{name}</b>\nWhat do you want from this monitor?",
-            reply_markup=reply_markup,
-            parse_mode="HTML",
-        )
 
 
 @send_action(action=constants.ChatAction.TYPING)
@@ -642,7 +662,7 @@ def startWithoutPersistence():
 
 # def notifyServerStart():
 #     SERVER = WebhookServer(
-#         telegramApiKey=REQ_TELEGRAM_API_KEY["data"], 
+#         telegramApiKey=REQ_TELEGRAM_API_KEY["data"],
 #         baseUrl=REQ_SHINOBI_BASE_URL["data"],
 #         port=REQ_SHINOBI_PORT["data"],
 #         shinobiApiKey=REQ_SHINOBI_API_KEY["data"],

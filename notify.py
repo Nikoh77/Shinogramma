@@ -28,7 +28,7 @@ class WebhookServer():
         self.APPLICATION = ApplicationBuilder().token(token=telegramApiKey).build()
         self.snapshotUrl = "".join([baseUrl, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
 
-        @self.app.post(path="/send_message")
+        @self.app.get(path="/send_message")
         async def send_message(
             chat_id: int = 73216475,
             mid: str | None = None,

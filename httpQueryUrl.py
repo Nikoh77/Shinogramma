@@ -1,7 +1,6 @@
 import logging
 import requests
 import json  # for debug only, can be removed when all work fine...
-import http.client
 
 logger = logging.getLogger(name=__name__)
 
