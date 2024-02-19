@@ -298,8 +298,8 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, cha
                     if var in globals().keys():
                         if chat_id in globals()[var]:
                             continue
-                    else:
-                        states.append(i["name"])
+                    # else:
+                    states.append(i["name"])
                 if len(states) > 0:
                     buttons = []
                     for state in states:
@@ -348,8 +348,8 @@ async def monitors_command(
                     if var in globals().keys():
                         if chat_id in globals()[var]:
                             continue
-                    else:
-                        monitors.append({"name": i["name"], "id": i["mid"]})
+                    # else:
+                    monitors.append({"name": i["name"], "id": i["mid"]})
                 if len(monitors) > 0:
                     buttons = []
                     for monitor in monitors:
@@ -434,27 +434,27 @@ async def monitors_subcommand(
             if var in globals().keys():
                 if chat_id not in globals()[var]:
                     continue
-            else:
-                buttons.append(
-                    [
-                        InlineKeyboardButton(
-                            text=choice,
-                            callback_data={
-                                "tag": tag,
-                                "choice": choice,
-                                "mid": mid,
-                            },
-                        )
-                    ]
-                )
-        if len(buttons) > 0:
-            reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"<b>{name}</b>\nWhat do you want from this monitor?",
-                reply_markup=reply_markup,
-                parse_mode="HTML",
+            # else:
+            buttons.append(
+                [
+                    InlineKeyboardButton(
+                        text=choice,
+                        callback_data={
+                            "tag": tag,
+                            "choice": choice,
+                            "mid": mid,
+                        },
+                    )
+                ]
             )
+    if len(buttons) > 0:
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"<b>{name}</b>\nWhat do you want from this monitor?",
+            reply_markup=reply_markup,
+            parse_mode="HTML",
+        )
 
 
 @send_action(action=constants.ChatAction.TYPING)
