@@ -66,6 +66,7 @@ Feel free to expand my code with new features or simply clean it up and/or make 
 ### FINAL NOTES:
 I already implemented the code for:
 * monitors configuration through conversation/chat, but I need better API documentation.
-* alerts/notifications through Shinogramma (then excluding Shinobi's telegram implementation), I need that Shinobi's dev fix a bug with POST/PUT method for webhook calls.\
+* alerts/notifications through Shinogramma (then excluding Shinobi's telegram implementation), I need that Shinobi's dev fix a bug with POST/PUT method for webhook calls.
+
 For these reasons that are beyond my control, Shinogramma lacks these two features.\
 I hope to be able to release the final and complete version soon
