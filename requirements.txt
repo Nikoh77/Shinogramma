@@ -4,3 +4,5 @@ humanize
 m3u8
 python-telegram-bot
 Requests
+fastapi
+uvicorn
