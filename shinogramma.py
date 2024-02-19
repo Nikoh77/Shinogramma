@@ -389,7 +389,7 @@ async def BOTsettings_command(
     else:
         var = "BANS_SETTINGS"
         if var in globals().keys():
-            if chat_id != int(globals()[var]):
+            if chat_id not in globals()[var]:
                 if update.effective_chat:
                     tag = inspect.currentframe().f_code.co_name  # type: ignore
                     keyboard = [
