@@ -1,8 +1,7 @@
 # Shinogramma
 ![head](https://github.com/Nikoh77/Shinogramma/assets/7826178/8ce40f79-014d-4289-9ebb-987ef0b2352a)
-### I implemented the code to configure monitors through conversation/chat, now I only need Shinobi's dev help to have it working; I have tried in every way but I have not yet succeeded. I don't know if the problem is in Shinobi's API or in my skills (which are certainly not excellent) in any case this is the "status quo", so I'm looking for help to complete this bot with editing/configuration monitors feature.
 
-That said..., this software (aka bot) is intended as a client to conveniently control Shinobi DVS (Digital Video Server, more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitors streaming and saved recorded videos, and manage them.
+This software (aka bot) is intended as a client to conveniently control Shinobi DVS (Digital Video Server, more info at https://shinobi.video) through Telegram, right now it is possible to activate states, take snapshots, watch monitors streaming and stored videos, and manage them.
 Shinogramma can run on any computer with Python 3 and an internet connection.\
 It doesn't require specific skills or knowledge, nor does it need port forwarding or special configurations on the router <b>so with Shinogramma you can keep secure your local environment closing all incoming ports!</b>
 ## Commands:
@@ -63,3 +62,10 @@ Not defining or leaving the `CHAT_ID` parameter empty allows anyone to interact 
 For any questions, you can find me on the official Shinobi Discord server (if I don't answer, please ping me).\
 Lastly, please report any malfunctions or bugs.
 Feel free to expand my code with new features or simply clean it up and/or make it more efficient. If you do so, create a pull request, and I'll be happy to accept it.
+
+### FINAL NOTES:
+I already implemented the code for:
+* monitors configuration through conversation/chat, but I need better API documentation.
+* alerts/notifications through Shinogramma (then excluding Shinobi's telegram implementation), I need that Shinobi's dev fix a bug with POST/PUT method for webhook calls.\
+For these reasons that are beyond my control, Shinogramma lacks these two features.\
+I hope to be able to release the final and complete version soon
