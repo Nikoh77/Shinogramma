@@ -68,7 +68,7 @@ class WebhookServer():
                 host="0.0.0.0",
                 port=5001,
                 log_config=None,
-                log_level="trace",
+                log_level= logger.level,
             )
         except Exception as e:
             logger.warning(msg=f"Error running HTTP Server: {e}")
