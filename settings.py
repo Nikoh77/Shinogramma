@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import urlparse
 from pathlib import Path
 
-logger = logger = logging.getLogger(name=__name__)
+logger = logging.getLogger(name=__name__)
 
 
 class Url(str):

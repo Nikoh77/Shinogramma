@@ -1,4 +1,3 @@
-from ast import arg
 import logging
 import inspect
 from httpQueryUrl import queryUrl
@@ -6,13 +5,11 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     error,
-    InlineQueryResultVideo,
 )
 from datetime import datetime
 import humanize
 
 logger = logger = logging.getLogger(name=__name__)
-
 
 class Video:
     def __init__(

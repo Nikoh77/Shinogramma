@@ -33,7 +33,6 @@ from monitor import Monitor
 from pathlib import Path
 from video import Video
 
-
 """
 Below constant is required to set the log level only for some modules directly involved by
 this application and avoid seeing the debug of all modules in the tree.
@@ -112,22 +111,34 @@ for i in list(globals().keys()):
 
 # Start logging
 logger = colorlog.getLogger(name=__name__)
-colorlog.basicConfig(
-    format="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
+
+file_handler = logging.FileHandler(filename="shinogramma.log")
+
+console_handler = logging.StreamHandler()
+
+logging.basicConfig(
+    format="[%(levelname)-8s] %(asctime)s %(name)s %(message)s",
     # level=logging.WARNING,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    style="%",
+    handlers=[file_handler, console_handler],
+)
+
+formatter = colorlog.ColoredFormatter(
+    fmt="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     reset=True,
     log_colors={
+        "TRACE": "bold_cyan",
         "DEBUG": "cyan",
         "INFO": "green",
         "WARNING": "yellow",
         "ERROR": "bold_red",
         "CRITICAL": "bold_red,bg_white",
     },
-    secondary_log_colors={},
-    style="%",
 )
 
+console_handler.setFormatter(fmt=formatter)
 
 def setLogLevel() -> None:
     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
