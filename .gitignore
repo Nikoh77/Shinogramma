@@ -130,6 +130,5 @@ config.ini
 shinogramma.build/
 shinogramma.dist/
 shinogramma.onefile-build/
-shinogramma.bin
 nuitka_compile_command.txt
 shinogramma.log
