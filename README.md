@@ -12,10 +12,9 @@ Shinogramma is not intended to replace the web interface; the real goal is to ha
 Clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
 (Optional but recommended...) Create a virtual environment\
 Just install required modules with ```pip install -r requirements.txt```\
-... or execute install.sh (after giving him exec rights)\
 and start it with ```cd Shinogramma && python3 shinogramma.py```
 
-An executable version in a single file for Linux is also available in "Releases" area.\
+An executable version in a single file for Linux is also available in "Releases" area (and bin folder).\
 I'm looking for someone to take care of releases for Windows and Mac OS, basically they will just have to compile the new releases with nuitka.
 
 I highly recommend a server installation, meaning the bot runs as a service rather than a user application. If you're a Linux user, I suggest installing it without a desktop environment and configuring it as a service managed by systemd, but this goes beyond the scope of this writing.
