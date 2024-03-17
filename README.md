@@ -12,7 +12,7 @@ Shinogramma is not intended to replace the web interface; the real goal is to ha
 Clone this repo with ```git clone https://github.com/Nikoh77/Shinogramma.git```\
 (Optional but recommended...) Create a virtual environment\
 Just install required modules with ```pip install -r requirements.txt```\
-and start it with ```cd Shinogramma && python3 shinogramma.py```
+and start it with ```cd Shinogramma/src && python3 shinogramma.py```
 
 An executable version in a single file for Linux is also available in "Releases" area (and bin folder).\
 I'm looking for someone to take care of releases for Windows and Mac OS, basically they will just have to compile the new releases with nuitka.
