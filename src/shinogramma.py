@@ -33,7 +33,6 @@ from monitor import Monitor
 from pathlib import Path
 from video import Video
 
-
 """
 Below constant is required to set the log level only for some modules directly involved by
 this application and avoid seeing the debug of all modules in the tree.
@@ -112,22 +111,34 @@ for i in list(globals().keys()):
 
 # Start logging
 logger = colorlog.getLogger(name=__name__)
-colorlog.basicConfig(
-    format="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
+
+file_handler = logging.FileHandler(filename="shinogramma.log")
+
+console_handler = logging.StreamHandler()
+
+logging.basicConfig(
+    format="[%(levelname)-8s] %(asctime)s %(name)s %(message)s",
     # level=logging.WARNING,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    style="%",
+    handlers=[file_handler, console_handler],
+)
+
+formatter = colorlog.ColoredFormatter(
+    fmt="%(log_color)s[%(levelname)-8s] %(blue)s %(asctime)s %(name)s %(reset)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     reset=True,
     log_colors={
+        "TRACE": "bold_cyan",
         "DEBUG": "cyan",
         "INFO": "green",
         "WARNING": "yellow",
         "ERROR": "bold_red",
         "CRITICAL": "bold_red,bg_white",
     },
-    secondary_log_colors={},
-    style="%",
 )
 
+console_handler.setFormatter(fmt=formatter)
 
 def setLogLevel() -> None:
     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
@@ -660,15 +671,15 @@ def startWithoutPersistence():
     )
     return application
 
-# def notifyServerStart():
-#     SERVER = WebhookServer(
-#         telegramApiKey=REQ_TELEGRAM_API_KEY["data"],
-#         baseUrl=REQ_SHINOBI_BASE_URL["data"],
-#         port=REQ_SHINOBI_PORT["data"],
-#         shinobiApiKey=REQ_SHINOBI_API_KEY["data"],
-#         groupKey=REQ_SHINOBI_GROUP_KEY["data"],
-#     )
-#     SERVER.start()
+def notifyServerStart():
+    SERVER = WebhookServer(
+        telegramApiKey=REQ_TELEGRAM_API_KEY["data"],
+        baseUrl=REQ_SHINOBI_BASE_URL["data"],
+        port=REQ_SHINOBI_PORT["data"],
+        shinobiApiKey=REQ_SHINOBI_API_KEY["data"],
+        groupKey=REQ_SHINOBI_GROUP_KEY["data"],
+    )
+    SERVER.start()
 
 if __name__ == "__main__":
     if not buildSettings(data=settings.iniRead()):
@@ -689,8 +700,8 @@ if __name__ == "__main__":
         raise SystemExit
     logger.info(msg="ShinogrammaBot Up and running")
     if APPLICATION is not None:
-        # if REQ_SHINOGRAMMA_APISERVER["data"]:
-        #     from notify import WebhookServer
-        #     notifyServerStart()
+        if REQ_SHINOGRAMMA_APISERVER["data"]:
+            from notify import WebhookServer
+            notifyServerStart()
         APPLICATION.run_polling(drop_pending_updates=True)
     logger.info(msg="ShinogrammaBot terminated")

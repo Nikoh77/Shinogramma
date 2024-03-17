@@ -8,6 +8,7 @@ import hashlib
 import time
 
 logger = logging.getLogger(name=__name__)
+logger.handlers = logging.root.handlers
 
 '''
 When jpeg api is not enabled for a specific monitor, shinobi sends an image as
@@ -35,7 +36,6 @@ class WebhookServer():
             query: str = "text",
             message: str = "messaggio di default",
         ):
-            print("ciao")
             if query == "text":
                 await self.APPLICATION.bot.send_message(chat_id=chat_id, text=message)
             elif query == "image":
@@ -60,18 +60,19 @@ class WebhookServer():
         md5Hash.update(content)
         return md5Hash.hexdigest()
 
-    def run_server(self):
+    def run_server(self) -> None:
         try:
             import uvicorn
             uvicorn.run(
                 app=self.app,
                 host="0.0.0.0",
                 port=5001,
-                log_level="trace",
+                log_config=None,
+                log_level= logger.level,
             )
         except Exception as e:
             logger.warning(msg=f"Error running HTTP Server: {e}")
 
-    def start(self):
+    def start(self) -> None:
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
         self.server_thread.start()

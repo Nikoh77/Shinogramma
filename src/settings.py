@@ -1,0 +1,229 @@
+# This is a simple settings config parser, importer and filler module by Nikoh version 1.0.0
+
+import configparser
+import logging
+from typing import Any
+from urllib.parse import urlparse
+from pathlib import Path
+
+logger = logging.getLogger(name=__name__)
+
+
+class Url(str):
+    def __new__(cls, value):
+        return super(Url, cls).__new__(cls=cls, object=value)
+
+
+class IniSettings:
+    """
+    This class object is a simple settings config parser, importer and filler.
+    """
+
+    def __init__(
+        self,
+        neededSettings: dict[str, list],
+        configFile: Path,
+    ) -> None:
+        """
+        Constructor of the class.
+
+        Arguments:
+        - neededSettings (dict[str, list]): The required data, like this:
+        neededSettings: dict[str, list] = {
+            "telegram": [{"name": "api_key", "typeOf": str, "data": None, "isUrl": False}],
+            "shinobi": [
+                {"name": "api_key", "typeOf": bool, "data": True},
+                {"name": "group_key", "typeOf": str, "data": None},
+                {"name": "base_url", "typeOf": str, "data": None},
+                {"name": "port", "typeOf": int, "data": 8080},
+            ],
+        }
+        - configFile (Path): The path to config file.
+            Default is None.
+        """
+        self._neededSettings = neededSettings
+        self._configFile = configFile
+        self._config = configparser.ConfigParser(
+            inline_comment_prefixes=("#", ";"),
+            comment_prefixes=("#", ";"),
+            empty_lines_in_values=False,
+            allow_no_value=False,
+        )
+        if not self._iniCheck(settings=self._neededSettings):
+            raise SystemExit
+
+    def _iniCheck(self, settings) -> bool:
+        try:
+            self._config.read(filenames=self._configFile)
+            logger.info(msg='Ok found settings.ini, analyzing...')
+            for section in settings:
+                for option in settings[section]:
+                    if option["data"] == None:
+                        if not self._config.has_option(section=section, option=option["name"]):
+                            try:
+                                value = input(f"Required {section} {option['name']} not found in your settings file, please insert it: ")
+                            except Exception as e:
+                                logger.error(
+                                    msg=f"Error asking input in console: {e}; please add it and restart..."
+                                )
+                                return False
+                            if self._verifyTypeOf(value=value, typeOf=option["typeOf"], name=option["name"]) == None:
+                                logger.error(
+                                    msg=f"TypeOf check failed in {section} {option['name']} {value}"
+                                )
+                                return False
+                            self._config.set(
+                                    section=section,
+                                    option=option["name"],
+                                    value=str(object=value),
+                                )
+            logger.info(msg="INI check terminated")
+            with open(file=self._configFile, mode="w") as configfile:
+                self._config.write(fp=configfile)
+            return True
+        except Exception as error:
+            logger.error(msg=f"An error {error} occurred finding or loading or parsing settings")
+            return False
+
+    def iniRead(self) -> tuple[Any, ...] | bool | None:
+        """
+        Read all (required and optional) data from the configuration file, checking their type.
+        """
+        returnedSettings: dict[str, dict] = {}
+        for configSection in self._config.sections():
+            for configProperty in self._config.options(section=configSection):
+                configValue = self._config.get(
+                    section=configSection, option=configProperty
+                )
+                value: Any = None
+                redundant: bool = False
+                if configSection in self._neededSettings:
+                    requiredList = self._neededSettings[configSection]
+                    for i in requiredList:
+                        if i["name"] == configProperty:
+                            logger.debug(
+                                msg=f"{configSection} {configProperty} found in your settings file..."
+                            )
+                            # checking of type and returning the converted and right value
+                            result = self._verifyTypeOf(value=configValue, typeOf=i["typeOf"], name=configProperty)
+                            if result is not None:
+                                if result != i["data"]:
+                                    value = result
+                                    if i["data"] is not None:
+                                        logger.debug(msg=f"{configSection} {configProperty} {value} is different from the default, overriding...")
+                                else:
+                                    redundant = True
+                                    logger.warning(msg=f"{configSection} {configProperty} is the same as the default, resulting redundant, consider to remove it!")
+                            else:
+                                logger.error(msg=f"TypeOf check failed in {configSection} {configProperty} {configValue}")
+                                return False
+                            break
+                if value is None and not redundant:
+                    if configValue == "":
+                        continue
+                    value = configValue
+                    logger.debug(
+                        msg=f"{configSection} {configProperty} {value} defined in your settings file is not required, setting up as optional..."
+                    )
+                if not redundant:
+                    if configSection not in returnedSettings:
+                        returnedSettings[configSection] = {}
+                    if configProperty not in returnedSettings[configSection]:
+                        returnedSettings[configSection].update({configProperty: value})
+        if returnedSettings:
+            # print(returnedSettings)
+            return self._buildSettings(settings=returnedSettings)
+        return False
+
+    def _verifyTypeOf(self, value: str, typeOf: type, name: str) -> None | Any:
+        """Verify and optionally convert the type of a value."""
+        try:
+            if typeOf == Url:
+                if self._verifyUrl(url=value):
+                    return value
+            elif typeOf == bool:
+                if isinstance(value, bool):
+                    return value
+                else:
+                    if value.lower() == "false" or value == "0":
+                        return False
+                    elif value.lower() == "true" or value == "1":
+                        return True
+            elif typeOf == list:
+                temp: list[Any] = value.split(sep=",")
+                convertedValue = []
+                for i in temp:
+                    if i == "":
+                        continue
+                    elif i.isdigit():
+                        convertedValue.append(int(i))
+                    else:
+                        convertedValue.append(i)
+                return convertedValue
+            else:
+                if name == "loglevel":
+                    if not self._verifyLogLevel(loglevel=value):
+                        return None
+                convertedValue = typeOf(value)
+                return convertedValue
+            return None
+        except ValueError:
+            return None
+
+    def _verifyUrl(self, url: str) -> bool:
+        """Verify if the given URL is valid."""
+        try:
+            result = urlparse(url=url)
+            return all([result.scheme, result.netloc])
+        except ValueError:
+            return False
+
+    def _verifyLogLevel(self, loglevel) -> bool:
+        all_levels = [logging.getLevelName(level=level) for level in range(0, 101)]
+        if loglevel.upper() in all_levels:
+            return True
+        return False
+
+    def _buildSettings(self, settings: dict) -> tuple:
+        """
+        Construct a tuple of key-value pairs from the provided settings dictionary.
+
+        Args:
+            settings (dict): A dictionary containing configuration settings.
+
+        Returns:
+            tuple: A tuple of key-value pairs extracted from the 'settings' dictionary.
+
+        Example:
+            Given the 'settings' dictionary:
+            {
+                'section1': {'param1': 10, 'param2': 'value'},
+                'section2': {'param3': True, 'param4': 3.14}
+            }
+
+            The function would return a tuple of key-value pairs:
+            (
+                ('section1_param1', 10),
+                ('section1_param2', 'value'),
+                ('section2_param3', True),
+                ('section2_param4', 3.14)
+            )
+
+        Note:
+            This function is designed to convert nested dictionaries of configuration settings
+            into a flat tuple of key-value pairs. The resulting tuple is used to initialize
+            global variables based on configuration data.
+        """
+        varsDict: dict = {}
+        for key, value in settings.items():
+            for sub_key, sub_value in value.items():
+                variable_name = f"{key}_{sub_key}"
+                variable_name = variable_name.replace(" ", "_")
+                variable_name = variable_name.replace("-", "_")
+                logger.info(msg=f"Assigning {sub_value} to global variable {variable_name}...")
+                varsDict[variable_name] = sub_value
+        return tuple(varsDict.items())
+
+
+if __name__ == "__main__":
+    raise SystemExit
