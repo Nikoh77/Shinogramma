@@ -1,4 +1,79 @@
-# This is a simple settings config parser, importer and filler module by Nikoh version 1.0.0
+"""
+This is a simple settings config parser, importer and filler module by Nikoh version 1.0.0
+On main/calling module, the required data for running this software, are defined
+as a global scope constants.
+It is important to follow this syntax defining the constants:
+
+REQ_SECTION_OPTION: dict = {"data": None, "typeOf": type}
+
+For example, if you want to have following data in the configuration file:
+
+[BANANAS]
+number_of = 10
+color = green
+
+We need to add the following constants in the main module:
+
+REQ_BANANAS_NUMBER_OF: dict = {"data": None, "typeOf": int}
+REQ_BANANAS_COLOR: dict = {"data": None, "typeOf": str}
+
+When starting, settings will ask the user to enter the number and color of bananas...
+
+It is important to note that the value of 'data' key of all these constants is updated
+at runtime from None to values read from the configuration file by buildSettings function.
+Starting from these constants the variable `neededSettings` is created with this function
+that you must call in the main module, after the constants definition:
+
+for i in list(globals().keys()):
+    if i.startswith("REQ_"):
+        section = i.split(sep="_")[1]
+        option = i.replace("REQ_" + section + "_", "").lower()
+        if section not in neededSettings.keys():
+            neededSettings.update({section: []})
+        neededSettings[section].append(
+            {
+                "name": option,
+                "data": globals()[i].get("data"),
+                "typeOf": globals()[i].get("typeOf"),
+            }
+        )
+
+This done, you can instantiate the class like this:
+
+settings = IniSettings(neededSettings=neededSettings, configFile=CONFIG_FILE)
+
+and finally, as you want, you can call the iniRead method to read the settings from the config file:
+
+if not buildSettings(data=settings.iniRead()):
+    logger.critical(msg="Error building and or retrieving settings from config file, exiting...")
+    raise SystemExit
+
+where buildSettings is a function that you must define in the main module to fill and replace values of
+global scope variables with the values read from the config file:
+
+def buildSettings(data) -> bool:
+    if data:
+        for i, v in data:
+            varName = "REQ_" + i.upper()
+            if varName in globals().keys():
+                globals()[varName].update({"data": v})
+            else:
+                varName = i.upper()
+                globals()[varName] = v
+        return True
+    return False
+
+An attempt will be made to convert the data to the type indicated in the constant, so
+the string '10' entered by the user will become an integer.
+
+If you want to use Url type, you must import also the Url class from this module and use it in the typeOf:
+
+from settings import IniSettings, Url
+
+Is important to know that if initial data is not None this will be the default value for this costant
+and settings will not ask the user to enter this data, but if you also provide same option on the config file
+the default data will be overwritten.
+"""
 
 import configparser
 import logging
@@ -18,7 +93,6 @@ class IniSettings:
     """
     This class object is a simple settings config parser, importer and filler.
     """
-
     def __init__(
         self,
         neededSettings: dict[str, list],
@@ -30,16 +104,26 @@ class IniSettings:
         Arguments:
         - neededSettings (dict[str, list]): The required data, like this:
         neededSettings: dict[str, list] = {
-            "telegram": [{"name": "api_key", "typeOf": str, "data": None, "isUrl": False}],
+            "telegram": [{"name": "api_key", "typeOf": str, "data": None}],
             "shinobi": [
                 {"name": "api_key", "typeOf": bool, "data": True},
                 {"name": "group_key", "typeOf": str, "data": None},
                 {"name": "base_url", "typeOf": str, "data": None},
                 {"name": "port", "typeOf": int, "data": 8080},
+                {"name": "userIdes", "typeOf": list, "data": [11,56,9]},
             ],
         }
         - configFile (Path): The path to config file.
             Default is None.
+
+        Note: first key is the section, then a list of dictionaries with the name of the
+        option, the type of the option and the default value.
+        If you need you can add optional data in the config file just adding options or/and sections
+        in the config file, the class will read them and check their type.
+        All optional data (for witch type of is not specified) will be read as string
+        and if isdigit() is applicable without errors will be converted to int.
+        Is not possible to have a list as optional data; if you need it you must add a
+        required data with typeOf list.
         """
         self._neededSettings = neededSettings
         self._configFile = configFile
@@ -159,13 +243,15 @@ class IniSettings:
                         convertedValue.append(int(i))
                     else:
                         convertedValue.append(i)
-                return convertedValue
+                if len(convertedValue) > 0:
+                    return convertedValue
             else:
-                if name == "loglevel":
-                    if not self._verifyLogLevel(loglevel=value):
-                        return None
-                convertedValue = typeOf(value)
-                return convertedValue
+                if value != "":
+                    if name == "loglevel":
+                        if not self._verifyLogLevel(loglevel=value):
+                            return None
+                    convertedValue = typeOf(value)
+                    return convertedValue
             return None
         except ValueError:
             return None

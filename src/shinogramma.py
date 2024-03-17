@@ -50,35 +50,9 @@ CONFIG_FILE: Path = Path("config.ini")
 TELEGRAM_CHAT_ID: list[int] = []
 APPLICATION: Application | None = None
 """
-Below required data for running this software, are defined as a constants.
+Below required data for running this software, are defined as a global scope constants.
 Starting from these constants the variable `neededSettings` is created; she is used by
-the `settings` class. 
-It is important to follow the syntax:
-
-REQ_ + INIsection + INIoption.
-
-For example, if you want to have following configuration in the configuration file:
-
-[BANANAS]
-number_of = 10
-color = green
-
-We need to add the following constants below:
-
-REQ_BANANAS_NUMBER_OF: dict = {"data": None, "typeOf": int}
-REQ_BANANAS_COLOR: dict = {"data": None, "typeOf": str}
-
-When starting, settings will ask the user to enter the number and color of bananas...
-
-It is important to note that the value of 'data' key of all these constants is updated 
-at runtime from None to values read from the configuration file here, by buildSettings function.
-
-An attempt will be made to convert the data to the type indicated in the constant, so 
-the string '10' entered by the user will become an integer.
-
-Is important to know that if initial data is not None this will be the default value for this costant
-and settings will not ask the user to enter this data, but if you also provide same option on the config file
-the default data will be overwritten.
+the `settings` class; more info on the settings.py file.
 """
 
 REQ_TELEGRAM_API_KEY: dict = {"data": None, "typeOf": str}
@@ -118,7 +92,6 @@ console_handler = logging.StreamHandler()
 
 logging.basicConfig(
     format="[%(levelname)-8s] %(asctime)s %(name)s %(message)s",
-    # level=logging.WARNING,
     datefmt="%Y-%m-%d %H:%M:%S",
     style="%",
     handlers=[file_handler, console_handler],
