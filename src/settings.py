@@ -6,6 +6,7 @@ It is important to follow this syntax defining the constants:
 
 REQ_SECTION_OPTION: dict = {"data": None, "typeOf": type}
 
+
 For example, if you want to have following data in the configuration file:
 
 [BANANAS]
@@ -66,9 +67,10 @@ def buildSettings(data) -> bool:
 An attempt will be made to convert the data to the type indicated in the constant, so
 the string '10' entered by the user will become an integer.
 
-If you want to use Url type, you must import also the Url class from this module and use it in the typeOf:
+This module also provide you for Url and IP classes; If you want to use them, you
+must import these classes from this module and use as a typeOf:
 
-from settings import IniSettings, Url
+from settings import IniSettings, Url, IP
 
 Is important to know that if initial data is not None this will be the default value for this costant
 and settings will not ask the user to enter this data, but if you also provide same option on the config file
@@ -79,6 +81,7 @@ import configparser
 import logging
 from typing import Any
 from urllib.parse import urlparse
+import ipaddress
 from pathlib import Path
 
 logger = logging.getLogger(name=__name__)
@@ -88,6 +91,9 @@ class Url(str):
     def __new__(cls, value):
         return super(Url, cls).__new__(cls=cls, object=value)
 
+class IP(ipaddress._BaseAddress):
+    def __new__(cls, value):
+        return super(IP, cls).__new__(cls=cls)
 
 class IniSettings:
     """
@@ -156,6 +162,8 @@ class IniSettings:
                                     msg=f"TypeOf check failed in {section} {option['name']} {value}"
                                 )
                                 return False
+                            if not self._config.has_section(section=section):
+                                self._config.add_section(section=section)
                             self._config.set(
                                     section=section,
                                     option=option["name"],
@@ -179,6 +187,7 @@ class IniSettings:
                 configValue = self._config.get(
                     section=configSection, option=configProperty
                 )
+                # TODO implement a check for list type (a string with comma separated values) and do something
                 value: Any = None
                 redundant: bool = False
                 if configSection in self._neededSettings:
@@ -221,40 +230,51 @@ class IniSettings:
 
     def _verifyTypeOf(self, value: str, typeOf: type, name: str) -> None | Any:
         """Verify and optionally convert the type of a value."""
-        try:
-            if typeOf == Url:
-                if self._verifyUrl(url=value):
-                    return value
-            elif typeOf == bool:
-                if isinstance(value, bool):
-                    return value
-                else:
-                    if value.lower() == "false" or value == "0":
-                        return False
-                    elif value.lower() == "true" or value == "1":
-                        return True
-            elif typeOf == list:
-                temp: list[Any] = value.split(sep=",")
-                convertedValue = []
-                for i in temp:
-                    if i == "":
-                        continue
-                    elif i.isdigit():
-                        convertedValue.append(int(i))
-                    else:
-                        convertedValue.append(i)
-                if len(convertedValue) > 0:
-                    return convertedValue
+        if typeOf == Url:
+            # if self._verifyUrl(url=value):
+            #     return value
+            try:
+                urlparse(url=value)
+                logger.debug(msg=f"URL {value} is a valid URL...")
+                # return all([result.scheme, result.netloc])
+                return value
+            except ValueError:
+                logger.error(msg=f"URL {value} is not a valid URL...")
+        elif typeOf == IP:
+            try:
+                ipaddress.ip_address(address=value)
+                logger.debug(msg=f"IP {value} is a valid IP...")
+                return value
+            except ValueError:
+                logger.error(msg=f"IP {value} is not a valid IP...")
+        elif typeOf == bool:
+            if isinstance(value, bool):
+                return value
             else:
-                if value != "":
-                    if name == "loglevel":
-                        if not self._verifyLogLevel(loglevel=value):
-                            return None
-                    convertedValue = typeOf(value)
-                    return convertedValue
-            return None
-        except ValueError:
-            return None
+                if value.lower() == "false" or value == "0":
+                    return False
+                elif value.lower() == "true" or value == "1":
+                    return True
+        elif typeOf == list:
+            temp: list[Any] = value.split(sep=",")
+            convertedValue = []
+            for i in temp:
+                if i == "":
+                    continue
+                elif i.isdigit():
+                    convertedValue.append(int(i))
+                else:
+                    convertedValue.append(i)
+            if len(convertedValue) > 0:
+                return convertedValue
+        else:
+            if value != "":
+                if name == "loglevel":
+                    if not self._verifyLogLevel(loglevel=value):
+                        return None
+                convertedValue = typeOf(value)
+                return convertedValue
+        return None
 
     def _verifyUrl(self, url: str) -> bool:
         """Verify if the given URL is valid."""

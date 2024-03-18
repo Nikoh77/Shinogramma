@@ -28,7 +28,7 @@ import logging
 import inspect
 from typing import Callable, Any
 from httpQueryUrl import queryUrl
-from settings import IniSettings, Url
+from settings import IniSettings, Url, IP
 from monitor import Monitor
 from pathlib import Path
 from video import Video
