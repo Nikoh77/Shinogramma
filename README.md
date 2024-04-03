@@ -32,8 +32,8 @@ Using chat_id, you can restrict the usage of the bot to only the Telegram users 
 The IDs should be entered in the config.ini file as follows:
 chat_id = 6588899, 77778888, 888888887
 
-Optional parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
-Below is a table detailing the possible parameters within the `[BANS]` section of the configuration file:
+BANS parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
+Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
 
 | Parameter         | Description |
 |-------------------|-------------|
@@ -46,7 +46,20 @@ Below is a table detailing the possible parameters within the `[BANS]` section o
 | `settings`        | Bans user IDs from modifying bot settings. |
 | `state_statename` | Bans specific user IDs from changing the state of a defined Shinobi state, e.g., `state_livingroom_on`. The parameter name consists of a fixed part (`state_`) and a variable part that corresponds to the Shinobi state name. |
 
-Each of the above parameters can contain one or multiple Telegram user IDs, separated by commas.
+Note: the syntax must respect standard json, also pay close attention to the comma at the end of each line.
+This is an example of how the bans property should look in your configuration file:
+
+bans = {
+	"mid_GiHMUvAMTe": null,
+	"do_snapshot": 00022000,
+	"do_stream": null,
+	"do_videos": null,
+	"do_map": 00022000,
+	"do_configure": [00022000, 00023000],
+	"settings": 00023000,
+	"state_Soggiorno_On": null}
+
+Each of the above parameters can contain one or multiple Telegram user IDs, separated by commas, enclosed by square brackets.
 
 ## CHAT_ID Parameter
 Before setting up ban lists, it's crucial to define the `CHAT_ID` parameter. This parameter determines which Telegram user IDs can interact with the bot. IDs not included in this parameter will receive no response from the bot and will be effectively ignored. Therefore, the `CHAT_ID` parameter acts as a whitelist, and the ban lists subtract IDs from this list.

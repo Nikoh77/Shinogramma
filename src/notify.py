@@ -27,7 +27,7 @@ class WebhookServer():
     ) -> None:
         self.app = FastAPI()
         self.APPLICATION = ApplicationBuilder().token(token=telegramApiKey).build()
-        self.snapshotUrl = "".join([baseUrl, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
+        self.snapshotUrl = "".join([baseUrl.url, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
 
         @self.app.get(path="/send_message")
         async def send_message(
