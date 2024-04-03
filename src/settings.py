@@ -118,7 +118,11 @@ class Url:
 
     def _verify(self, url: str) -> tuple[str, IP]:
         if not self.is_ip(address=url) and not url.isdigit():
-            hostname = urlparse(url=url).hostname
+            parsed = urlparse(url=url)
+            if parsed.scheme == "":
+                hostname = parsed.path
+            else:
+                hostname = parsed.netloc
             if hostname is not None:
                 temp = socket.gethostbyname(hostname)
                 if temp:
