@@ -51,22 +51,27 @@ CONFIG_FILE: Path = Path("config.ini")
 APPLICATION: Application | None = None
 """
 Below required and optional data for running this software defined as a global scope
-constants.
-Starting from these constants the variable `neededSettings` is created then is passed to
-the `settings` class; more info on the settings.py file.
+constant.
+This constant is passed to the `settings` class; more info on the settings.py file.
 """
-SET_TELEGRAM_CHAT_ID: dict = {"data": None, "typeOf": list, "required": False}
-SET_TELEGRAM_API_KEY: dict = {"data": None, "typeOf": str, "required": True}
-SET_SHINOBI_API_KEY: dict = {"data": None, "typeOf": str, "required": True}
-SET_SHINOBI_GROUP_KEY: dict = {"data": None, "typeOf": str, "required": True}
-SET_SHINOBI_BASE_URL: dict = {"data": None, "typeOf": Url, "required": True}
-SET_SHINOBI_PORT: dict = {"data": 8080, "typeOf": int, "required": True}
-SET_SHINOGRAMMA_LOGLEVEL: dict = {"data": "info", "typeOf": LogLevel, "required": False}
-SET_SHINOGRAMMA_PERSISTENCE: dict = {"data": False, "typeOf": bool, "required": False}
-SET_SHINOGRAMMA_APISERVER: dict = {"data": False, "typeOf": bool, "required": False}
-SET_SHINOGRAMMA_BANS: dict = {"data": None, "typeOf": dict, "required": False} 
-# Create a dictionary with all keys starting with SET_ to pass to the settings class
-neededSettings = {i: globals()[i] for i in globals().keys() if i.startswith("SET_")}
+SETTINGS: dict[str, dict[str, dict[str, Any]]] = {
+    "TELEGRAM": {
+        "CHAT_ID": {"data": None, "typeOf": list, "required": False},
+        "API_KEY": {"data": None, "typeOf": str, "required": True},
+    },
+    "SHINOBI": {
+        "API_KEY": {"data": None, "typeOf": str, "required": True},
+        "GROUP_KEY": {"data": None, "typeOf": str, "required": True},
+        "BASE_URL": {"data": None, "typeOf": Url, "required": True},
+        "PORT": {"data": 8080, "typeOf": int, "required": True},
+    },
+    "SHINOGRAMMA": {
+        "LOGLEVEL": {"data": "info", "typeOf": LogLevel, "required": False},
+        "PERSISTENCE": {"data": False, "typeOf": bool, "required": False},
+        "APISERVER": {"data": False, "typeOf": bool, "required": False},
+        "BANS": {"data": None, "typeOf": dict, "required": False},
+    },
+}
 # Defining root variables
 commands: list = []
 confParam, confParamVal = range(2)
@@ -103,11 +108,8 @@ console_handler.setFormatter(fmt=formatter)
 
 def setLogLevel() -> None:
     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
-    setLevel = str(object=SET_SHINOGRAMMA_LOGLEVEL["data"]).upper()
-    if (
-        SET_SHINOGRAMMA_LOGLEVEL["data"] != None
-        and setLevel != currentLevel
-    ):
+    setLevel = str(object=SETTINGS["SHINOGRAMMA"]["LOGLEVEL"]["data"]).upper()
+    if setLevel != None and setLevel != currentLevel:
         getattr(logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower())(
             f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
         )
@@ -118,30 +120,17 @@ def setLogLevel() -> None:
         )
         for module in MODULES_LOGGERS:
             logging.getLogger(name=module).setLevel(level=setLevel)
-
-
 setLogLevel()
-settings = IniSettings(neededSettings=neededSettings, configFile=CONFIG_FILE)
-
-def buildSettings(data) -> bool:
-    if data:
-        for i, v in data:
-            if i in globals().keys():
-                globals()[i].update({"data": v["data"]})
-        return True
-    return False
-
 # Start decorators section
 def restricted(func):
     """Restrict chat only with id(es) defined in config.ini"""
 
     @wraps(wrapped=func)
-    # async def wrapped(update, context, *args, **kwargs):
     async def wrapped(update, context, *args, **kwargs):
         if update is not None and context is not None:
             chat_id = update.effective_user.id
-            if len(SET_TELEGRAM_CHAT_ID["data"]) > 0:
-                if chat_id not in SET_TELEGRAM_CHAT_ID["data"]:
+            if len(SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]) > 0:
+                if chat_id not in SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]:
                     logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
                     return
         else:
@@ -198,8 +187,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE, chat
                     text="I'm Shinogramma Bot, and I am ready!\nGlad to serve you \u263A",
                     reply_markup=reply_markup,
                 )
-            # httpServer = threading.Thread(target=startHttpServer, args=("Hello", 42))
-            # httpServer.start()
         return None
 
 
@@ -242,19 +229,19 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, cha
     else:
         if update.effective_chat:
             tag = inspect.currentframe().f_code.co_name  # type: ignore
-            url = f"{SET_SHINOBI_BASE_URL['data']}:{SET_SHINOBI_PORT['data']}/{SET_SHINOBI_API_KEY['data']}/monitorStates/{SET_SHINOBI_GROUP_KEY['data']}"
+            url = f"{SETTINGS['SHINOBI']['BASE_URL']['data']}:{SETTINGS['SHINOBI']['PORT']['data']}/{SETTINGS['SHINOBI']['API_KEY']['data']}/monitorStates/{SETTINGS['SHINOBI']['GROUP_KEY']['data']}"
             data = await queryUrl(url=url)
             if data:
                 dataInJson = data.json()
                 states = []
                 for i in dataInJson["presets"]:
                     var = f"state_{i['name']}"
-                    if var in SET_SHINOGRAMMA_BANS["data"].keys():
+                    if var in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
                         try:
-                            if chat_id in SET_SHINOGRAMMA_BANS["data"][var]:
+                            if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
                                 continue
                         except TypeError as e:
-                            if chat_id == SET_SHINOGRAMMA_BANS["data"][var]:
+                            if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
                                 continue
                         except Exception as e:
                             logger.error(msg=f"Error verifyng BANS for states: {e}")
@@ -297,19 +284,19 @@ async def monitors_command(
     else:
         if update.effective_chat:
             tag = inspect.currentframe().f_code.co_name  # type: ignore
-            url = f"{SET_SHINOBI_BASE_URL['data']}:{SET_SHINOBI_PORT['data']}/{SET_SHINOBI_API_KEY['data']}/monitor/{SET_SHINOBI_GROUP_KEY['data']}"
+            url = f"{SETTINGS['SHINOBI']['BASE_URL']['data']}:{SETTINGS['SHINOBI']['PORT']['data']}/{SETTINGS['SHINOBI']['API_KEY']['data']}/monitor/{SETTINGS['SHINOBI']['GROUP_KEY']['data']}"
             data = await queryUrl(url=url)
             if data:
                 dataInJson = data.json()
                 monitors = []
                 for i in dataInJson:
                     var = f"mid_{i['mid']}"
-                    if var in SET_SHINOGRAMMA_BANS["data"].keys():
+                    if var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys():
                         try:
-                            if chat_id in SET_SHINOGRAMMA_BANS["data"][var]:
+                            if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
                                 continue
                         except TypeError as e:
-                            if chat_id == SET_SHINOGRAMMA_BANS["data"][var]:
+                            if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
                                 continue
                         except Exception as e:
                             logger.error(msg=f"Error verifyng BANS for states: {e}")
@@ -351,13 +338,13 @@ async def BOTsettings_command(
         desc = "Edit shinogramma settings"
         return desc
     else:
-        if "settings" in SET_SHINOGRAMMA_BANS["data"].keys():
+        if "settings" in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys():
             authorized = True
             try:
-                if chat_id in SET_SHINOGRAMMA_BANS["data"]["settings"]:
+                if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["settings"]:
                     authorized = False
             except TypeError as e:
-                if chat_id == SET_SHINOGRAMMA_BANS["data"]["settings"]:
+                if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["settings"]:
                     authorized = False
             except Exception as e:
                 logger.error(msg=f"Error verifyng BANS for states: {e}")
@@ -403,12 +390,12 @@ async def monitors_subcommand(
         buttons = []
         for choice in choices:
             var = f"do_{choice}"
-            if var in SET_SHINOGRAMMA_BANS["data"].keys():
+            if var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys():
                 try:
-                    if chat_id in SET_SHINOGRAMMA_BANS["data"][var]:
+                    if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
                         continue
                 except TypeError as e:
-                    if chat_id == SET_SHINOGRAMMA_BANS["data"][var]:
+                    if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
                         continue
                 except Exception as e:
                     logger.error(msg=f"Error verifyng BANS for states: {e}")
@@ -448,7 +435,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                 choice = callbackFullData.get("choice", None)
                 operation = callbackFullData.get("operation", None)
                 if tag == "states_command":
-                    url = f"{SET_SHINOBI_BASE_URL['data']}:{SET_SHINOBI_PORT['data']}/{SET_SHINOBI_API_KEY['data']}/monitorStates/{SET_SHINOBI_GROUP_KEY['data']}/{choice}"
+                    url = f"{SETTINGS['SHINOBI']['BASE_URL']['data']}:{SETTINGS['SHINOBI']['PORT']['data']}/{SETTINGS['SHINOBI']['API_KEY']['data']}/monitorStates/{SETTINGS['SHINOBI']['GROUP_KEY']['data']}/{choice}"
                     data = await queryUrl(url=url)
                     if data:
                         await query.answer(text="OK, done \U0001F44D")
@@ -464,10 +451,10 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         update=update,
                         context=context,
                         chatId=chat_id,
-                        baseUrl=SET_SHINOBI_BASE_URL["data"],
-                        port=SET_SHINOBI_PORT["data"],
-                        apiKey=SET_SHINOBI_API_KEY["data"],
-                        groupKey=SET_SHINOBI_GROUP_KEY["data"],
+                        baseUrl=SETTINGS['SHINOBI']['BASE_URL']["data"],
+                        port=SETTINGS['SHINOBI']['PORT']["data"],
+                        apiKey=SETTINGS['SHINOBI']['API_KEY']["data"],
+                        groupKey=SETTINGS['SHINOBI']['GROUP_KEY']["data"],
                         mid=mid,
                     )
                     if choice == "snapshot":
@@ -511,10 +498,10 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         update=update,
                         context=context,
                         chatId=chat_id,
-                        baseUrl=SET_SHINOBI_BASE_URL["data"],
-                        port=SET_SHINOBI_PORT["data"],
-                        apiKey=SET_SHINOBI_API_KEY["data"],
-                        groupKey=SET_SHINOBI_GROUP_KEY["data"],
+                        baseUrl=SETTINGS['SHINOBI']['BASE_URL']["data"],
+                        port=SETTINGS['SHINOBI']['PORT']["data"],
+                        apiKey=SETTINGS['SHINOBI']['API_KEY']["data"],
+                        groupKey=SETTINGS['SHINOBI']['GROUP_KEY']["data"],
                         mid=mid,
                     )
                     if choice is not None:
@@ -587,7 +574,7 @@ def buildApp() -> bool:
     except ImportError:
         logger.critical(msg="Cachetools module not found")
         return False
-    if SET_SHINOGRAMMA_PERSISTENCE["data"]:
+    if SETTINGS['SHINOGRAMMA']['PERSISTENCE']["data"]:
         APPLICATION = startWithPersistence()
     else:
         APPLICATION = startWithoutPersistence()
@@ -619,7 +606,7 @@ def startWithPersistence():
     logger.info(msg="Starting with persistence")
     application = (
         ApplicationBuilder()
-        .token(token=SET_TELEGRAM_API_KEY["data"])
+        .token(token=SETTINGS['TELEGRAM']['API_KEY']["data"])
         .persistence(persistence=myPersistence)
         .arbitrary_callback_data(arbitrary_callback_data=True)
         .build()
@@ -631,7 +618,7 @@ def startWithoutPersistence():
     logger.info(msg="Starting without persistence")
     application = (
         ApplicationBuilder()
-        .token(token=SET_TELEGRAM_API_KEY["data"])
+        .token(token=SETTINGS['TELEGRAM']['API_KEY']["data"])
         .arbitrary_callback_data(arbitrary_callback_data=True)
         .build()
     )
@@ -639,22 +626,23 @@ def startWithoutPersistence():
 
 def notifyServerStart():
     SERVER = WebhookServer(
-        telegramApiKey=SET_TELEGRAM_API_KEY["data"],
-        baseUrl=SET_SHINOBI_BASE_URL["data"],
-        port=SET_SHINOBI_PORT["data"],
-        shinobiApiKey=SET_SHINOBI_API_KEY["data"],
-        groupKey=SET_SHINOBI_GROUP_KEY["data"],
+        telegramApiKey=SETTINGS['TELEGRAM']['API_KEY']["data"],
+        baseUrl=SETTINGS['SHINOBI']['BASE_URL']["data"],
+        port=SETTINGS['SHINOBI']['PORT']["data"],
+        shinobiApiKey=SETTINGS['SHINOBI']['API_KEY']["data"],
+        groupKey=SETTINGS['SHINOBI']['GROUP_KEY']["data"],
     )
     SERVER.start()
 
 if __name__ == "__main__":
-    if not buildSettings(data=settings.iniRead()):
+    mySettings = IniSettings(neededSettings=SETTINGS, configFile=CONFIG_FILE)
+    if not mySettings.iniRead():
         logger.critical(
             msg="Error building and or retrieving settings from config file, exiting..."
         )
         raise SystemExit
     setLogLevel()
-    if not len(SET_TELEGRAM_CHAT_ID["data"]) > 0:
+    if not len(SETTINGS['TELEGRAM']['CHAT_ID']["data"]) > 0:
         logger.warning(
             msg="Chat_id not defined, this could be very dangerous, continuing..."
         )
@@ -666,7 +654,7 @@ if __name__ == "__main__":
         raise SystemExit
     logger.info(msg="ShinogrammaBot Up and running")
     if APPLICATION is not None:
-        if SET_SHINOGRAMMA_APISERVER["data"]:
+        if SETTINGS['SHINOGRAMMA']['APISERVER']["data"]:
             from notify import WebhookServer
             notifyServerStart()
         APPLICATION.run_polling(drop_pending_updates=True)
