@@ -45,7 +45,7 @@ MODULES_LOGGERS: list[str] = [
     "httpQueryUrl",
     "settings",
     "monitor",
-    "notify"
+    "notify",
 ]
 CONFIG_FILE: Path = Path("config.ini")
 APPLICATION: Application | None = None
@@ -625,12 +625,22 @@ def startWithoutPersistence():
     return application
 
 def notifyServerStart():
+    list1 = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
+    if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
+        if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"], list):
+            list2 = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"]
+        else:
+            list2 = [SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"]]
+        toNotify = [item for item in list1 if item not in list2]
+    else:
+        toNotify = list1
     SERVER = WebhookServer(
-        telegramApiKey=SETTINGS['TELEGRAM']['API_KEY']["data"],
-        baseUrl=SETTINGS['SHINOBI']['BASE_URL']["data"],
-        port=SETTINGS['SHINOBI']['PORT']["data"],
-        shinobiApiKey=SETTINGS['SHINOBI']['API_KEY']["data"],
-        groupKey=SETTINGS['SHINOBI']['GROUP_KEY']["data"],
+        telegramApiKey=SETTINGS["TELEGRAM"]["API_KEY"]["data"],
+        baseUrl=SETTINGS["SHINOBI"]["BASE_URL"]["data"],
+        port=SETTINGS["SHINOBI"]["PORT"]["data"],
+        shinobiApiKey=SETTINGS["SHINOBI"]["API_KEY"]["data"],
+        groupKey=SETTINGS["SHINOBI"]["GROUP_KEY"]["data"],
+        toNotify=toNotify,
     )
     SERVER.start()
 

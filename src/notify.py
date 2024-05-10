@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from settings import Url
 from telegram.ext import ApplicationBuilder
 import logging
@@ -24,10 +24,17 @@ class WebhookServer():
         port: int,
         shinobiApiKey: str,
         groupKey: str,
+        toNotify: list,
     ) -> None:
-        self.app = FastAPI()
+        self.app = FastAPI(debug=True)
         self.APPLICATION = ApplicationBuilder().token(token=telegramApiKey).build()
         self.snapshotUrl = "".join([baseUrl.url, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
+
+        @self.app.middleware(middleware_type="http")
+        async def log_http_method(request: Request, call_next):
+            logger.debug(msg=f"HTTP method: {request.method}")
+            response = await call_next(request)
+            return response
 
         @self.app.get(path="/send_message")
         async def send_message(
