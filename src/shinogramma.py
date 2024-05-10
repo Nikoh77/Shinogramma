@@ -54,7 +54,8 @@ Below required and optional data for running this software defined as a global s
 constant.
 This constant is passed to the `settings` class; more info on the settings.py file.
 """
-SETTINGS: dict[str, dict[str, dict[str, Any]]] = {
+SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
+# SETTINGS: dict[str, dict[str, dict[str, Any]]] = {
     "TELEGRAM": {
         "CHAT_ID": {"data": None, "typeOf": list, "required": False},
         "API_KEY": {"data": None, "typeOf": str, "required": True},
@@ -108,18 +109,41 @@ console_handler.setFormatter(fmt=formatter)
 
 def setLogLevel() -> None:
     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
-    setLevel = str(object=SETTINGS["SHINOGRAMMA"]["LOGLEVEL"]["data"]).upper()
-    if setLevel != None and setLevel != currentLevel:
-        getattr(logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower())(
-            f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-        )
-        logger.setLevel(level=setLevel)
-        currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
-        getattr(logger, currentLevel)(
-            msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-        )
-        for module in MODULES_LOGGERS:
-            logging.getLogger(name=module).setLevel(level=setLevel)
+    if "SHINOGRAMMA" in SETTINGS:
+        if isinstance(SETTINGS["SHINOGRAMMA"]["LOGLEVEL"], dict):
+            setLevel = str(object=SETTINGS["SHINOGRAMMA"]["LOGLEVEL"]["data"]).upper()
+            if setLevel != None and setLevel != currentLevel:
+                getattr(
+                    logger,
+                    logging.getLevelName(level=logger.getEffectiveLevel()).lower(),
+                )(
+                    f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+                )
+                logger.setLevel(level=setLevel)
+                currentLevel = logging.getLevelName(
+                    level=logger.getEffectiveLevel()
+                ).lower()
+                getattr(logger, currentLevel)(
+                    msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+                )
+                for module in MODULES_LOGGERS:
+                    logging.getLogger(name=module).setLevel(level=setLevel)
+
+
+# def setLogLevel() -> None:
+#     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
+#     setLevel = str(object=SETTINGS["SHINOGRAMMA"]["LOGLEVEL"]["data"]).upper()
+#     if setLevel != None and setLevel != currentLevel:
+#         getattr(logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower())(
+#             f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+#         )
+#         logger.setLevel(level=setLevel)
+#         currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
+#         getattr(logger, currentLevel)(
+#             msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
+#         )
+#         for module in MODULES_LOGGERS:
+#             logging.getLogger(name=module).setLevel(level=setLevel)
 setLogLevel()
 # Start decorators section
 def restricted(func):
@@ -129,6 +153,7 @@ def restricted(func):
     async def wrapped(update, context, *args, **kwargs):
         if update is not None and context is not None:
             chat_id = update.effective_user.id
+            assert isinstance(SETTINGS["TELEGRAM"]["CHAT_ID"], dict)
             if len(SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]) > 0:
                 if chat_id not in SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]:
                     logger.warning(msg=f"Unauthorized, access denied for {chat_id}.")
@@ -229,11 +254,16 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, cha
     else:
         if update.effective_chat:
             tag = inspect.currentframe().f_code.co_name  # type: ignore
+            assert isinstance(SETTINGS["SHINOBI"]["BASE_URL"], dict)
+            assert isinstance(SETTINGS["SHINOBI"]["PORT"], dict)
+            assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
+            assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
             url = f"{SETTINGS['SHINOBI']['BASE_URL']['data']}:{SETTINGS['SHINOBI']['PORT']['data']}/{SETTINGS['SHINOBI']['API_KEY']['data']}/monitorStates/{SETTINGS['SHINOBI']['GROUP_KEY']['data']}"
             data = await queryUrl(url=url)
             if data:
                 dataInJson = data.json()
                 states = []
+                assert isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict)
                 for i in dataInJson["presets"]:
                     var = f"state_{i['name']}"
                     if var in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
@@ -284,11 +314,16 @@ async def monitors_command(
     else:
         if update.effective_chat:
             tag = inspect.currentframe().f_code.co_name  # type: ignore
+            assert isinstance(SETTINGS["SHINOBI"]["BASE_URL"], dict)
+            assert isinstance(SETTINGS["SHINOBI"]["PORT"], dict)
+            assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
+            assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
             url = f"{SETTINGS['SHINOBI']['BASE_URL']['data']}:{SETTINGS['SHINOBI']['PORT']['data']}/{SETTINGS['SHINOBI']['API_KEY']['data']}/monitor/{SETTINGS['SHINOBI']['GROUP_KEY']['data']}"
             data = await queryUrl(url=url)
             if data:
                 dataInJson = data.json()
                 monitors = []
+                assert isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict)
                 for i in dataInJson:
                     var = f"mid_{i['mid']}"
                     if var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys():
@@ -338,6 +373,7 @@ async def BOTsettings_command(
         desc = "Edit shinogramma settings"
         return desc
     else:
+        assert isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict)
         if "settings" in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys():
             authorized = True
             try:
@@ -388,6 +424,7 @@ async def monitors_subcommand(
         tag = inspect.currentframe().f_code.co_name  # type: ignore
         choices = ["snapshot", "stream", "videos", "map", "configure"]
         buttons = []
+        assert isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict)
         for choice in choices:
             var = f"do_{choice}"
             if var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys():
@@ -428,6 +465,10 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
         query = update.callback_query
         if query is not None and query.data is not None:
             if isinstance(query.data, dict):
+                assert isinstance(SETTINGS["SHINOBI"]["BASE_URL"], dict)
+                assert isinstance(SETTINGS["SHINOBI"]["PORT"], dict)
+                assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
+                assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
                 callbackFullData: dict = query.data
                 logger.debug(msg=f"Callback received: {callbackFullData}")
                 tag = callbackFullData.get("tag")
@@ -574,6 +615,7 @@ def buildApp() -> bool:
     except ImportError:
         logger.critical(msg="Cachetools module not found")
         return False
+    assert isinstance(SETTINGS["SHINOGRAMMA"]["PERSISTENCE"], dict)
     if SETTINGS['SHINOGRAMMA']['PERSISTENCE']["data"]:
         APPLICATION = startWithPersistence()
     else:
@@ -597,6 +639,7 @@ def buildApp() -> bool:
 
 
 def startWithPersistence():
+    assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
     myPersistenceInput = PersistenceInput(
         bot_data=False, chat_data=False, user_data=False, callback_data=True
     )
@@ -615,6 +658,7 @@ def startWithPersistence():
 
 
 def startWithoutPersistence():
+    assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
     logger.info(msg="Starting without persistence")
     application = (
         ApplicationBuilder()
@@ -625,6 +669,13 @@ def startWithoutPersistence():
     return application
 
 def notifyServerStart():
+    assert isinstance(SETTINGS["TELEGRAM"]["CHAT_ID"], dict)
+    assert isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict)
+    assert isinstance(SETTINGS["SHINOBI"]["BASE_URL"], dict)
+    assert isinstance(SETTINGS["SHINOBI"]["PORT"], dict)
+    assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
+    assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
+    assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
     list1 = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
     if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"], list):
@@ -652,6 +703,7 @@ if __name__ == "__main__":
         )
         raise SystemExit
     setLogLevel()
+    assert isinstance(SETTINGS["TELEGRAM"]["CHAT_ID"], dict)
     if not len(SETTINGS['TELEGRAM']['CHAT_ID']["data"]) > 0:
         logger.warning(
             msg="Chat_id not defined, this could be very dangerous, continuing..."
@@ -664,6 +716,7 @@ if __name__ == "__main__":
         raise SystemExit
     logger.info(msg="ShinogrammaBot Up and running")
     if APPLICATION is not None:
+        assert isinstance(SETTINGS["SHINOGRAMMA"]["APISERVER"], dict)
         if SETTINGS['SHINOGRAMMA']['APISERVER']["data"]:
             from notify import WebhookServer
             notifyServerStart()
