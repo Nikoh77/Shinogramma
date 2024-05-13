@@ -9,7 +9,7 @@ from datetime import datetime
 import humanize
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, error
 
-logger = logger = logging.getLogger(name=__name__)
+logger = logging.getLogger(name=__name__)
 
 
 class Monitor:

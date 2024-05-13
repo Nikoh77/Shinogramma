@@ -677,7 +677,7 @@ def notifyServerStart():
     assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
     assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
     list1 = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
-    if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
+    if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():  # TODO insert in the readme
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"], list):
             list2 = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"]
         else:
@@ -693,7 +693,7 @@ def notifyServerStart():
         groupKey=SETTINGS["SHINOBI"]["GROUP_KEY"]["data"],
         toNotify=toNotify,
     )
-    SERVER.start()
+    return SERVER
 
 if __name__ == "__main__":
     mySettings = IniSettings(neededSettings=SETTINGS, configFile=CONFIG_FILE)
@@ -718,7 +718,10 @@ if __name__ == "__main__":
     if APPLICATION is not None:
         assert isinstance(SETTINGS["SHINOGRAMMA"]["APISERVER"], dict)
         if SETTINGS['SHINOGRAMMA']['APISERVER']["data"]:
+            import threading
             from notify import WebhookServer
-            notifyServerStart()
+            SERVER = notifyServerStart()
+            server_thread = threading.Thread(target=SERVER.runServer, daemon=True, name="WebhookServer")
+            server_thread.start()
         APPLICATION.run_polling(drop_pending_updates=True)
     logger.info(msg="ShinogrammaBot terminated")
