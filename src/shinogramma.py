@@ -3,7 +3,6 @@
 # or donate me a coffee
 
 import asyncio
-from calendar import c
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -29,11 +28,11 @@ import logging
 import inspect
 from typing import Callable, Any
 from httpQueryUrl import queryUrl
+from notify import WebhookServer
 from settings import IniSettings, Url, IP, LogLevel
 from monitor import Monitor
 from pathlib import Path
 from video import Video
-
 """
 Below constant is required to set the log level only for some modules directly involved by
 this application and avoid seeing the debug of all modules in the tree.
@@ -48,14 +47,15 @@ MODULES_LOGGERS: list[str] = [
     "notify",
 ]
 CONFIG_FILE: Path = Path("config.ini")
-APPLICATION: Application | None = None
+APPLICATION: Application | None = None  # The Bot
+SERVERAPI: WebhookServer | None = None  # The Webhook Server
 """
 Below required and optional data for running this software defined as a global scope
 constant.
 This constant is passed to the `settings` class; more info on the settings.py file.
 """
 SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
-# SETTINGS: dict[str, dict[str, dict[str, Any]]] = {
+    # SETTINGS: dict[str, dict[str, dict[str, Any]]] = {
     "TELEGRAM": {
         "CHAT_ID": {"data": None, "typeOf": list, "required": False},
         "API_KEY": {"data": None, "typeOf": str, "required": True},
@@ -69,13 +69,15 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
     "SHINOGRAMMA": {
         "LOGLEVEL": {"data": "info", "typeOf": LogLevel, "required": False},
         "PERSISTENCE": {"data": False, "typeOf": bool, "required": False},
-        "APISERVER": {"data": False, "typeOf": bool, "required": False},
+        "WEBHOOK_SERVER": {"data": False, "typeOf": bool, "required": False},
+        "WEBHOOK_PORT": {"data": 5001, "typeOf": int, "required": False},
         "BANS": {"data": None, "typeOf": dict, "required": False},
     },
 }
 # Defining root variables
 commands: list = []
 confParam, confParamVal = range(2)
+shutdownEvent = asyncio.Event()
 # Start logging
 logger = colorlog.getLogger(name=__name__)
 
@@ -129,21 +131,6 @@ def setLogLevel() -> None:
                 for module in MODULES_LOGGERS:
                     logging.getLogger(name=module).setLevel(level=setLevel)
 
-
-# def setLogLevel() -> None:
-#     currentLevel = logging.getLevelName(level=logger.getEffectiveLevel())
-#     setLevel = str(object=SETTINGS["SHINOGRAMMA"]["LOGLEVEL"]["data"]).upper()
-#     if setLevel != None and setLevel != currentLevel:
-#         getattr(logger, logging.getLevelName(level=logger.getEffectiveLevel()).lower())(
-#             f"switching from log level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-#         )
-#         logger.setLevel(level=setLevel)
-#         currentLevel = logging.getLevelName(level=logger.getEffectiveLevel()).lower()
-#         getattr(logger, currentLevel)(
-#             msg=f"to level {logging.getLevelName(level=logger.getEffectiveLevel())}"
-#         )
-#         for module in MODULES_LOGGERS:
-#             logging.getLogger(name=module).setLevel(level=setLevel)
 setLogLevel()
 # Start decorators section
 def restricted(func):
@@ -554,9 +541,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         await context.bot.send_message(
                             chat_id=chat_id, text="Shinogramma terminated"
                         )
-                        global application
-                        if APPLICATION is not None:
-                            APPLICATION.stop_running()
+                        shutdownEvent.set()
 
 
 @restricted
@@ -632,13 +617,13 @@ def buildApp() -> bool:
             commandName: str = command["command"]
             commandFunc: Callable[..., Any] = command["func"]
             handlers.append(CommandHandler(command=commandName, callback=commandFunc))
-    if APPLICATION is not None:
+    if APPLICATION:
         APPLICATION.add_handlers(handlers=handlers)
         return True
     return False
 
 
-def startWithPersistence():
+def startWithPersistence() -> Application:
     assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
     myPersistenceInput = PersistenceInput(
         bot_data=False, chat_data=False, user_data=False, callback_data=True
@@ -657,7 +642,7 @@ def startWithPersistence():
     return application
 
 
-def startWithoutPersistence():
+def startWithoutPersistence() -> Application:
     assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
     logger.info(msg="Starting without persistence")
     application = (
@@ -668,7 +653,8 @@ def startWithoutPersistence():
     )
     return application
 
-def notifyServerStart():
+
+def notifyServerStart() -> None:
     assert isinstance(SETTINGS["TELEGRAM"]["CHAT_ID"], dict)
     assert isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict)
     assert isinstance(SETTINGS["SHINOBI"]["BASE_URL"], dict)
@@ -676,7 +662,7 @@ def notifyServerStart():
     assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
     assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
     assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
-    list1 = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
+    list1: list = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
     if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():  # TODO insert in the readme
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"], list):
             list2 = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"]
@@ -685,15 +671,40 @@ def notifyServerStart():
         toNotify = [item for item in list1 if item not in list2]
     else:
         toNotify = list1
-    SERVER = WebhookServer(
-        telegramApiKey=SETTINGS["TELEGRAM"]["API_KEY"]["data"],
+    global SERVERAPI
+    SERVERAPI = WebhookServer(
         baseUrl=SETTINGS["SHINOBI"]["BASE_URL"]["data"],
-        port=SETTINGS["SHINOBI"]["PORT"]["data"],
+        shinobiPort=SETTINGS["SHINOBI"]["PORT"]["data"],
         shinobiApiKey=SETTINGS["SHINOBI"]["API_KEY"]["data"],
         groupKey=SETTINGS["SHINOBI"]["GROUP_KEY"]["data"],
+        port=SETTINGS["SHINOGRAMMA"]["WEBHOOK_PORT"]["data"],
         toNotify=toNotify,
+        application=APPLICATION,
     )
-    return SERVER
+
+async def starter() -> None:
+    if APPLICATION:
+        await APPLICATION.initialize()
+        await APPLICATION.start()
+        if APPLICATION.updater:
+            await APPLICATION.updater.start_polling(drop_pending_updates=True)
+        if SERVERAPI:
+            asyncio.create_task(coro=SERVERAPI.runServer())
+        await shutdownEvent.wait()
+        print("shutting down1")
+        await appShutdown()
+
+
+async def appShutdown() -> None:
+    print("shutting down2")
+    if SERVERAPI:
+        await SERVERAPI.stopServer()
+    if APPLICATION:
+        if APPLICATION.updater:
+            await APPLICATION.updater.stop()
+            await APPLICATION.stop()
+            await APPLICATION.shutdown()
+
 
 if __name__ == "__main__":
     mySettings = IniSettings(neededSettings=SETTINGS, configFile=CONFIG_FILE)
@@ -715,13 +726,10 @@ if __name__ == "__main__":
         )
         raise SystemExit
     logger.info(msg="ShinogrammaBot Up and running")
-    if APPLICATION is not None:
-        assert isinstance(SETTINGS["SHINOGRAMMA"]["APISERVER"], dict)
-        if SETTINGS['SHINOGRAMMA']['APISERVER']["data"]:
-            import threading
+    if APPLICATION:
+        assert isinstance(SETTINGS["SHINOGRAMMA"]["WEBHOOK_SERVER"], dict)
+        if SETTINGS["SHINOGRAMMA"]["WEBHOOK_SERVER"]["data"]:
             from notify import WebhookServer
-            SERVER = notifyServerStart()
-            server_thread = threading.Thread(target=SERVER.runServer, daemon=True, name="WebhookServer")
-            server_thread.start()
-        APPLICATION.run_polling(drop_pending_updates=True)
+            notifyServerStart()
+        asyncio.run(main=starter())
     logger.info(msg="ShinogrammaBot terminated")
