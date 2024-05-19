@@ -58,8 +58,8 @@ Below is a table detailing the possible keys within the `bans` dictionary of the
 
 Note: the syntax must respect standard json, also pay close attention to the comma at the end of each line.
 This is an example of how the bans property should look in your configuration file:
-
-```[SHINOGRAMMA]
+```
+[SHINOGRAMMA]
 bans = {
 	"mid_GiHMUvAMTe": null,
 	"do_snapshot": 00022000,
@@ -69,8 +69,8 @@ bans = {
 	"do_configure": [00022000, 00023000],
 	"settings": 00023000,
 	"state_Kitchen_On": null,
-	"to_notify": 00023000}```
-
+	"to_notify": 00023000}
+```
 Each of the above parameters can contain one or multiple Telegram user IDs, separated by commas, enclosed by square brackets.
 
 ## CHAT_ID Parameter
