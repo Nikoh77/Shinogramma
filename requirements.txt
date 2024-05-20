@@ -3,5 +3,5 @@ colorlog
 humanize
 m3u8
 python-telegram-bot
+quart
 Requests
-flask[async]

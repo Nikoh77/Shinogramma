@@ -596,7 +596,8 @@ def parseForCommands():
 def buildApp() -> bool:
     global APPLICATION
     try:
-        import cachetools  # Required by pipreqs in the place of python-telegram-bot[callback-data]
+        # Required by pipreqs in the place of python-telegram-bot[callback-data]
+        import cachetools  # type: ignore
     except ImportError:
         logger.critical(msg="Cachetools module not found")
         return False
@@ -662,8 +663,9 @@ def notifyServerStart() -> None:
     assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
     assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
     assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
+    assert isinstance(SETTINGS["SHINOGRAMMA"]["WEBHOOK_PORT"], dict)
     list1: list = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
-    if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():  # TODO insert in the readme
+    if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"], list):
             list2 = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"]
         else:
@@ -677,7 +679,7 @@ def notifyServerStart() -> None:
         shinobiPort=SETTINGS["SHINOBI"]["PORT"]["data"],
         shinobiApiKey=SETTINGS["SHINOBI"]["API_KEY"]["data"],
         groupKey=SETTINGS["SHINOBI"]["GROUP_KEY"]["data"],
-        port=SETTINGS["SHINOGRAMMA"]["WEBHOOK_PORT"]["data"],
+        port = SETTINGS["SHINOGRAMMA"]["WEBHOOK_PORT"]["data"],
         toNotify=toNotify,
         application=APPLICATION,
     )

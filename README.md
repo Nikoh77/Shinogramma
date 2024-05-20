@@ -31,7 +31,7 @@ I highly recommend a server deployment, meaning the bot runs as a service rather
 Shinogramma must be executed via terminal.
 When started for the first time, it will ask you to enter the necessary data for its operation, namely:
 1) Telegram API key, which BotFather will provide you when you create your bot.
-2) Shinobi API key, which you can generate directly in your user area.
+2) Shinobi API key, which you can generate directly in your Shinobi user area.
 3) Shinobi group key, found at the top in the Shinobi account settings.
 4) Shinobi base URL, the web address of your panel, like https://www.example.com/myshinobi
 5) Shinobi port number, usually 8080, but depending on the environment, it could also be 443, 80, or other.
@@ -41,8 +41,27 @@ Using chat_id, you can restrict the usage of the bot to only the Telegram users 
 The IDs should be entered in the config.ini file as follows:
 chat_id = 6588899, 77778888, 888888887
 
-BANS parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
-Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
+Below is the list of settings for each section, with correct formatting and possible values:\
+```
+[TELEGRAM]
+chat_id - optional but recommended - please provide a value for this setting; do not leave it empty, otherwise anyone will be able to interact with your bot and see your cameras. Specifies who can interact with the bot. If more than one, enclose the IDs in square brackets.
+api_key - required - the API key of your bot.
+
+[SHINOBI]
+api_key - required - the API key of your Shinobi instance.
+group_key - required - the group key of the user in Shinobi you want to control.
+base_url - required - the access URL to the web UI of your Shinobi.
+port - required - default: 8080 - the port number to complete the address.
+
+[SHINOGRAMMA]
+loglevel - optional - default: info - the debug level of the app. If you encounter issues, try changing it to debug.
+persistence - optional - default: false - old buttons in the chat with the bot will remain functional even after the bot restarts. This consumes more system resources.
+webhook_server - optional - default: false - set to true (or 1) to enable event notifications.
+webhook_port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
+```
+
+bans - optional - default: none - this parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
+Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:\
 
 | Parameter         | Description |
 |-------------------|-------------|
@@ -56,7 +75,8 @@ Below is a table detailing the possible keys within the `bans` dictionary of the
 | `state_statename` | Bans specific user IDs from changing the state of a defined Shinobi state, e.g., `state_livingroom_on`. The parameter name consists of a fixed part (`state_`) and a variable part that corresponds to the Shinobi state name. |
 | `to_notify`       | Bans user IDs from receiving event notifications. |
 
-Note: the syntax must respect standard json, also pay close attention to the comma at the end of each line.
+Note: the syntax must respect standard json, also pay close attention to the comma at the end of each line.\
+
 This is an example of how the bans property should look in your configuration file:
 ```
 [SHINOGRAMMA]

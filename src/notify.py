@@ -6,7 +6,7 @@ from httpQueryUrl import queryUrl
 import hashlib
 import time
 import json
-from werkzeug.datastructures import FileStorage
+# from werkzeug.datastructures import FileStorage
 from quart import Quart, request, Response, abort
 
 logger = logging.getLogger(name=__name__)
@@ -29,12 +29,12 @@ class WebhookServer():
     ) -> None:
         self.app: Quart = Quart(import_name=__name__)
         self.baseUrl = baseUrl
+        self.port = port
         self.shinobiPort = shinobiPort
         self.shinobiApiKey = shinobiApiKey
         self.groupKey = groupKey
         self.APPLICATION: Application = application
-        self.snapshotUrl = "".join([baseUrl.url, ":", str(object=port), "/", shinobiApiKey, "/jpeg/", groupKey])
-        self.port = port
+        self.snapshotUrl = "".join([baseUrl.url, ":", str(object=self.port), "/", shinobiApiKey, "/jpeg/", groupKey])
         self.toNotify = toNotify
         self.app.add_url_rule(
             rule="/notifier/",
@@ -67,7 +67,7 @@ class WebhookServer():
                 abort(code=400, description="Missing message query parameter")
             messageDict = json.loads(s=message)
             logger.debug(msg=f"Received message: {message}")
-            files: dict[str, FileStorage] = await request.files
+            files = await request.files
             mid = messageDict["info"]["mid"]
             description = messageDict["info"]["description"]
             reason = messageDict["info"]["eventDetails"]["reason"]
@@ -123,7 +123,7 @@ class WebhookServer():
                     )
         return Response(response="Success", status=200)
 
-    def mediaGroupFormatter(self, files: dict[str, FileStorage], messageToSend: str) -> list[InputMediaPhoto]:
+    def mediaGroupFormatter(self, files: dict, messageToSend: str) -> list[InputMediaPhoto]:
         mediaGroup = []
         for file in files.values():
             try:
