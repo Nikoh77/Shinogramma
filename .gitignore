@@ -127,8 +127,8 @@ config.ini
 
 .vscode/
 .persistence
-shinogramma.build/
-shinogramma.dist/
-shinogramma.onefile-build/
+bin/shinogramma.build/
+bin/shinogramma.dist/
+bin/shinogramma.onefile-build/
 nuitka_compile_command.txt
 shinogramma.log

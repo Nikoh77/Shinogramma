@@ -77,14 +77,12 @@ class WebhookServer():
                 url = f"{self.baseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.groupKey}/{mid}"
                 data = await queryUrl(url=url)
                 if not data:
-                    logger.error(
+                    logger.warning(
                         msg=f"Error querying/getting data from {url} about monitor {mid}..."
                     )
-                    abort(
-                        code=204
-                    )
-                dataInJson = data.json()
-                name = dataInJson[0].get("name")
+                else:
+                    dataInJson = data.json()
+                    name = dataInJson[0].get("name")
         except json.JSONDecodeError:
             logger.error(
                 msg=f"{message}\n is not a valid JSON object, returning 400 error code..."
@@ -97,7 +95,7 @@ class WebhookServer():
             "<b>WARNING:</b>\n"
             + (f"Title: <b>{title}</b>\n" if 'title' in locals() else "")
             + (f"Description: <b>{description}</b>\n" if 'description' in locals() else "")
-            + (f"Reason: <b>{reason}</b>\n" if 'reason' in locals() else "")
+            + (f"Reason: <b>{reason}</b>\n" if 'reason' in locals() else "")  # TODO add emoticons
             + (f"Name: <b>{name}</b>\n" if 'name' in locals() else "")
             + (f"Confidence: <b>{confidence}</b>\n" if 'confidence' in locals() else "")
         )
