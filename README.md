@@ -10,7 +10,7 @@ Now Shinogramma integrates a complete notification system via Telegram, so it's 
 You only need to enable event notifications via webhook in your account settings on the Shinobi interface; the URL will be:
 `http://SHINOGRAMMA-IP:5001/notifier/?message={{INNER_EVENT_INFO}}`\
 Please replace the IP address with the actual one; the port can be changed through the appropriate parameter in the configuration file (more information can be found on this page).\
-Shinogramma will be listening on that endpoint for POST and GET requests; to receive images with GET notifications, you also need to enable the JPG API in the settings of each monitor (so I recommend choosing POST).\
+Shinogramma will be listening on that endpoint for POST and GET requests (I recommend choosing POST); to receive images of events, you also need to enable the JPG API in the settings of each monitor.\
 This notification system seems to perform much better than the one integrated in Shinobi, but the choice is yours.
 ## Commands:
 Shinogramma is always under development, although it already works very well and has many functions, so commands and things he can do can increase, also maybe with your help; a good place to start is the /help command\
@@ -58,10 +58,9 @@ loglevel - optional - default: info - the debug level of the app. If you encount
 persistence - optional - default: false - old buttons in the chat with the bot will remain functional even after the bot restarts. This consumes more system resources.
 webhook_server - optional - default: false - set to true (or 1) to enable event notifications.
 webhook_port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
-```
-
 bans - optional - default: none - this parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
-Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:\
+```
+Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
 
 | Parameter         | Description |
 |-------------------|-------------|
@@ -112,6 +111,7 @@ Feel free to expand my code with new features or simply clean it up and/or make 
 
 ### FINAL NOTES:
 I already implemented the code for:
+* Restrict API/webhooks calls to single or a list of IPs
 * webhook call when an event is triggered,
 * Configurable webhooks calls through the bot/chat like to open a gate or to arm an alarm system.\
 * monitors configuration through conversation/chat, but I need better API documentation.

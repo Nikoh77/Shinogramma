@@ -6,8 +6,8 @@ from httpQueryUrl import queryUrl
 import hashlib
 import time
 import json
-# from werkzeug.datastructures import FileStorage
 from quart import Quart, request, Response, abort
+from urllib.parse import unquote, parse_qs
 
 logger = logging.getLogger(name=__name__)
 '''
@@ -34,7 +34,7 @@ class WebhookServer():
         self.shinobiApiKey = shinobiApiKey
         self.groupKey = groupKey
         self.APPLICATION: Application = application
-        self.snapshotUrl = "".join([baseUrl.url, ":", str(object=self.port), "/", shinobiApiKey, "/jpeg/", groupKey])
+        self.snapshotUrl = "".join([baseUrl.url, ":", str(object=self.shinobiPort), "/", shinobiApiKey, "/jpeg/", groupKey])
         self.toNotify = toNotify
         self.app.add_url_rule(
             rule="/notifier/",
@@ -50,8 +50,7 @@ class WebhookServer():
 
     async def runServer(self) -> None:
         try:
-            await self.app.run_task(host="0.0.0.0", port=self.port, debug=True)
-            print("ciao")
+            await self.app.run_task(host="0.0.0.0", port=self.port, debug=False)
         except Exception as e:
             logger.warning(msg=f"Error running HTTP Server: {e}")
 
@@ -61,30 +60,31 @@ class WebhookServer():
 
     async def notifier(self) -> Response:
         try:
-            message = request.args.get(key="message")
+            message = unquote(string=request.query_string).lstrip("message=")
             if not message:
                 logger.error(msg=f"Missing message query parameter...")
                 abort(code=400, description="Missing message query parameter")
             messageDict = json.loads(s=message)
             logger.debug(msg=f"Received message: {message}")
             files = await request.files
-            mid = messageDict["info"]["mid"]
-            description = messageDict["info"]["description"]
-            reason = messageDict["info"]["eventDetails"]["reason"]
-            confidence = messageDict["info"]["eventDetails"]["confidence"]
-            url = f"{self.baseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.groupKey}/{mid}"
-            data = await queryUrl(url=url)
-            if not data:
-                abort(
-                    code=204
-                )  # no log because queryUrl already should have logged something
-            dataInJson = data.json()
-            if not dataInJson:
-                logger.warning(
-                    msg=f"Error getting data from {url} about monitor {mid}..."
-                )
-                abort(code=204)
-            name = dataInJson[0].get("name")
+            mid = messageDict["info"].get("mid", None)
+            description = messageDict["info"].get("description", None)
+            title = messageDict["info"].get("title", None)
+            if "eventDetails" in messageDict["info"].keys():
+                reason = messageDict["info"]["eventDetails"].get("reason", None)
+                confidence = messageDict["info"]["eventDetails"].get("confidence", None)
+            if mid:
+                url = f"{self.baseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.groupKey}/{mid}"
+                data = await queryUrl(url=url)
+                if not data:
+                    logger.error(
+                        msg=f"Error querying/getting data from {url} about monitor {mid}..."
+                    )
+                    abort(
+                        code=204
+                    )
+                dataInJson = data.json()
+                name = dataInJson[0].get("name")
         except json.JSONDecodeError:
             logger.error(
                 msg=f"{message}\n is not a valid JSON object, returning 400 error code..."
@@ -94,23 +94,26 @@ class WebhookServer():
             logger.error(msg=f"Error executing notifier func: {e}")
             abort(code=204)
         messageToSend = (
-            f"<b>WARNING:</b>\n"
-            f"Description: <b>{description}</b>\n"
-            f"Reason: <b>{reason}</b>\n"
-            f"Name: <b>{name}</b>\n"
-            f"Confidence: <b>{confidence}</b>"
+            "<b>WARNING:</b>\n"
+            + (f"Title: <b>{title}</b>\n" if 'title' in locals() else "")
+            + (f"Description: <b>{description}</b>\n" if 'description' in locals() else "")
+            + (f"Reason: <b>{reason}</b>\n" if 'reason' in locals() else "")
+            + (f"Name: <b>{name}</b>\n" if 'name' in locals() else "")
+            + (f"Confidence: <b>{confidence}</b>\n" if 'confidence' in locals() else "")
         )
-        for user in self.toNotify:
-            if files:
-                mediaGroup = self.mediaGroupFormatter(
-                    files=files, messageToSend=messageToSend
-                )
+        if files:
+            mediaGroup = self.mediaGroupFormatter(
+                files=files, messageToSend=messageToSend
+            )
+            for user in self.toNotify:
                 await self.APPLICATION.bot.send_media_group(
                     chat_id=user, media=mediaGroup
                 )
-            else:
+        else:
+            if mid:
                 snapshotUrl = await self.getSnapshot(mid=mid)
-                if snapshotUrl:
+            for user in self.toNotify:
+                if "snapshotUrl" in locals().keys() and snapshotUrl is not None:
                     await self.APPLICATION.bot.send_photo(
                         chat_id=user,
                         photo=snapshotUrl,
