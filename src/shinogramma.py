@@ -69,10 +69,9 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
     "SHINOGRAMMA": {
         "LOGLEVEL": {"data": "info", "typeOf": LogLevel, "required": False},
         "PERSISTENCE": {"data": False, "typeOf": bool, "required": False},
-        "WEBHOOK_SERVER": {"data": False, "typeOf": bool, "required": False},
-        "WEBHOOK_PORT": {"data": 5001, "typeOf": int, "required": False},
         "BANS": {"data": None, "typeOf": dict, "required": False},
     },
+    "WEBHOOK": {"INCLUDE": WebhookServer},  # TODO aggiornare README
 }
 # Defining root variables
 commands: list = []
@@ -662,8 +661,8 @@ def notifyServerStart() -> None:
     assert isinstance(SETTINGS["SHINOBI"]["PORT"], dict)
     assert isinstance(SETTINGS["SHINOBI"]["API_KEY"], dict)
     assert isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict)
-    assert isinstance(SETTINGS["TELEGRAM"]["API_KEY"], dict)
-    assert isinstance(SETTINGS["SHINOGRAMMA"]["WEBHOOK_PORT"], dict)
+    assert isinstance(SETTINGS["WEBHOOK"]["PORT"], dict)
+    assert isinstance(SETTINGS["WEBHOOK"]["CLIENT"], dict)
     list1: list = SETTINGS["TELEGRAM"]["CHAT_ID"]["data"]
     if "to_notify" in SETTINGS['SHINOGRAMMA']['BANS']["data"].keys():
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["to_notify"], list):
@@ -679,7 +678,8 @@ def notifyServerStart() -> None:
         shinobiPort=SETTINGS["SHINOBI"]["PORT"]["data"],
         shinobiApiKey=SETTINGS["SHINOBI"]["API_KEY"]["data"],
         groupKey=SETTINGS["SHINOBI"]["GROUP_KEY"]["data"],
-        port = SETTINGS["SHINOGRAMMA"]["WEBHOOK_PORT"]["data"],
+        port=SETTINGS["WEBHOOK"]["PORT"]["data"],
+        client=SETTINGS["WEBHOOK"]["CLIENT"]["data"],
         toNotify=toNotify,
         application=APPLICATION,
     )
@@ -693,7 +693,6 @@ async def starter() -> None:
         if SERVERAPI:
             asyncio.create_task(coro=SERVERAPI.runServer())
         await shutdownEvent.wait()
-        print("shutting down1")
         await appShutdown()
 
 
@@ -729,8 +728,8 @@ if __name__ == "__main__":
         raise SystemExit
     logger.info(msg="ShinogrammaBot Up and running")
     if APPLICATION:
-        assert isinstance(SETTINGS["SHINOGRAMMA"]["WEBHOOK_SERVER"], dict)
-        if SETTINGS["SHINOGRAMMA"]["WEBHOOK_SERVER"]["data"]:
+        assert isinstance(SETTINGS["WEBHOOK"]["SERVER"], dict)
+        if SETTINGS["WEBHOOK"]["SERVER"]["data"]:
             from notify import WebhookServer
             notifyServerStart()
         asyncio.run(main=starter())

@@ -1,4 +1,4 @@
-from settings import Url
+from settings import Url, TrustList
 from telegram.ext import Application
 from telegram import InputMediaPhoto
 import logging
@@ -7,7 +7,9 @@ import hashlib
 import time
 import json
 from quart import Quart, request, Response, abort
-from urllib.parse import unquote, parse_qs
+from urllib.parse import unquote
+from typing import Any
+import asyncio
 
 logger = logging.getLogger(name=__name__)
 '''
@@ -17,6 +19,15 @@ placeholder, below a constant with the value of its hash
 PLACEHOLDERMD5 = "2a7127c16b2389474c41bc112618462f"
 
 class WebhookServer():
+    """
+    A class representing a web server.
+    """
+    # Required settings for this class, you can use "INCLUDE" in settings module
+    SETTINGS: dict[str, object | dict[str, Any]] = {
+        "SERVER": {"data": False, "typeOf": bool, "required": False},
+        "PORT": {"data": 5001, "typeOf": int, "required": False},
+        "CLIENT": {"data": None, "typeOf": TrustList, "required": False},
+    }
     def __init__(
         self,
         baseUrl: Url,
@@ -24,6 +35,7 @@ class WebhookServer():
         shinobiApiKey: str,
         groupKey: str,
         port: int,
+        client: TrustList,
         toNotify: list,
         application,
     ) -> None:
@@ -33,6 +45,7 @@ class WebhookServer():
         self.shinobiPort = shinobiPort
         self.shinobiApiKey = shinobiApiKey
         self.groupKey = groupKey
+        self.client = client
         self.APPLICATION: Application = application
         self.snapshotUrl = "".join([baseUrl.url, ":", str(object=self.shinobiPort), "/", shinobiApiKey, "/jpeg/", groupKey])
         self.toNotify = toNotify
@@ -83,6 +96,7 @@ class WebhookServer():
                 else:
                     dataInJson = data.json()
                     name = dataInJson[0].get("name")
+                    tags: list = dataInJson[0].get("tags", "").split(",")
         except json.JSONDecodeError:
             logger.error(
                 msg=f"{message}\n is not a valid JSON object, returning 400 error code..."

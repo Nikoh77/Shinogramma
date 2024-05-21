@@ -5,17 +5,13 @@ import json  # for debug only, can be removed when all work fine...
 logger = logging.getLogger(name=__name__)
 
 async def queryUrl(
-    url, method="get", data=None, debug=False
+    url, method="get", data=None, debug=False, timeout=1
 ) -> None | requests.Response:
     methods = ["get", "post", "put", "delete"]
     if method in methods:
         http_method = getattr(requests, method)
-        response: requests.Response
         try:
-            if method == ("get" or "delete"):
-                response = http_method(url=url, data=data)
-            else:
-                response = http_method(url=url, data=data)
+            response = http_method(url=url, data=data, timeout=timeout)
             if response.status_code != 200:
                 logger.info(
                     msg=f"Error {response.status_code} something went wrong, request error."
