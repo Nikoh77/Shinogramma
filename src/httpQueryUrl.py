@@ -1,17 +1,17 @@
 import logging
 import requests
 import json  # for debug only, can be removed when all work fine...
+import httpx
 
 logger = logging.getLogger(name=__name__)
 
 async def queryUrl(
     url, method="get", data=None, debug=False, timeout=1
-) -> None | requests.Response:
+) -> None | httpx.Response:
     methods = ["get", "post", "put", "delete"]
     if method in methods:
-        http_method = getattr(requests, method)
         try:
-            response = http_method(url=url, data=data, timeout=timeout)
+            response = httpx.request(method=method, url=url, data=data, timeout=timeout)
             if response.status_code != 200:
                 logger.info(
                     msg=f"Error {response.status_code} something went wrong, request error."
