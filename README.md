@@ -55,9 +55,11 @@ port - required - default: 8080 - the port number to complete the address.
 [SHINOGRAMMA]
 loglevel - optional - default: info - the debug level of the app. If you encounter issues, try changing it to debug.
 persistence - optional - default: false - old buttons in the chat with the bot will remain functional even after the bot restarts. This consumes more system resources.
-webhook_server - optional - default: false - set to true (or 1) to enable event notifications.
-webhook_port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
 bans - optional - default: none - this parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
+[WEBHOOK]
+server - optional - default: false - set to true (or 1) to enable event notifications.
+webhook_port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
+webhooks - optional - default: none - a flat dictionary where keys are tag and values are endpoint/url to call; if Shinobi triggers an event with this tag Shinogramma call url in the value. You can define tags for each monitor on its identity section.
 ```
 Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
 
