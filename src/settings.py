@@ -82,6 +82,9 @@ logger = logging.getLogger(name=__name__)
 
 
 class IP:
+    """
+    A class representing an IP address like 192.168.0.1, not more not less.
+    """
     def __init__(self, ip: str):
         self._ip: ipaddress.IPv4Address | ipaddress.IPv6Address = self._verify(ip=ip)
 
@@ -110,10 +113,12 @@ class IP:
 
 class Url:
     """
-    This class object is a simple URL parser and resolver.
+    A simple URL parser and resolver; this class represent an url object like
+    http://www.google.it.
+    You can also use an IP address and/or a port at the end like http://192.168.0.1:80
     """
-    def __init__(self, url):
-        self._url, self.ip = self._verify(url=url)
+    def __init__(self, url, port = None):
+        self._url, self.ip, self.port = self._verify(url=url)
 
     def __str__(self) -> str:
         # return self._url
@@ -127,18 +132,16 @@ class Url:
             return self._url == other
         return False
 
-    def _verify(self, url: str) -> tuple[str, IP]:
+    def _verify(self, url: str) -> tuple[str, IP, int | None]:
         if not self.is_ip(address=url) and not url.isdigit():
             parsed = urlparse(url=url)
-            if parsed.scheme == "":
-                hostname = parsed.path
-            else:
-                hostname = parsed.netloc
+            hostname = parsed.hostname  # Access the hostname
             if hostname is not None:
                 temp = socket.gethostbyname(hostname)
                 if temp:
                     ip = IP(ip=temp)
-                    return (url, ip)
+                    port = parsed.port  # Access the port
+                    return (url, ip, port)
         raise ValueError(f"Unable to resolve URL {url}")
 
     def is_ip(self, address):
@@ -154,7 +157,7 @@ class Url:
 
     @url.setter
     def url(self, value):
-        self._level, self.ip = self._verify(url=value)
+        self._url, self.ip, self.port = self._verify(url=value)
 
 
 class TrustList(dict):
@@ -180,7 +183,7 @@ class TrustList(dict):
                 raise TypeError("The Name of server in trustlist and his Url (or IP) must be strings")
             try:
                 temp = IP(ip=value)
-            except Exception:
+            except ValueError:
                 try:
                     temp = Url(url=value)
                 except Exception as e:
