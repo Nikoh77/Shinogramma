@@ -34,7 +34,7 @@ class Monitor:
         if data:
             dataInJson = data.json()
             try:
-                if json.loads(s=dataInJson[0]["details"])["snap"] == "1":
+                if dataInJson[0]["details"]["snap"] == "1":
                     await self.query.answer("Cooking your snapshot...\U0001F373")
                     baseurl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/jpeg/{self.GROUP_KEY}/{self.MID}/s.jpg"
                     avoidCacheUrl = str(object=int(time.time()))
@@ -72,7 +72,7 @@ class Monitor:
                 "flv": "/s.flv",
                 "mp4": "/s.mp4",
             }
-            streamType = json.loads(s=dataInJson[0]["details"])["stream_type"]
+            streamType = dataInJson[0]["details"]["stream_type"]
             try:
                 if streamType in streamTypes.keys():
                     streamUrl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/{streamType}/{self.GROUP_KEY}/{self.MID}{streamTypes[streamType]}"
@@ -163,9 +163,7 @@ class Monitor:
     async def getMap(self):
         data = await queryUrl(url=self.url)
         if data:
-            dataInJson = (
-                json.loads(data.json()[0]["details"]).get("geolocation").split(",")
-            )
+            dataInJson = (data.json()[0]["details"]).get("geolocation").split(",")
             latitude = dataInJson[0]
             longitude = dataInJson[1]
             if latitude == "49.2578298" and longitude == "-123.2634732":
@@ -184,7 +182,7 @@ class Monitor:
         data = await queryUrl(url=self.url)
         if data:
             dataInJson = data.json()[0]
-            details = json.loads(s=dataInJson["details"])
+            details = dataInJson["details"]
             if key in details.keys():
                 details[key] = value
                 dataInJson["details"] = details

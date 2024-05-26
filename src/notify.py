@@ -1,4 +1,4 @@
-from settings import Url, TrustList
+from settings import Url, AddressKList
 from telegram.ext import Application
 from telegram import InputMediaPhoto
 import logging
@@ -26,7 +26,7 @@ class WebhookServer():
     SETTINGS: dict[str, object | dict[str, Any]] = {
         "SERVER": {"data": False, "typeOf": bool, "required": False},
         "PORT": {"data": 5001, "typeOf": int, "required": False},
-        "CLIENT": {"data": None, "typeOf": TrustList, "required": False},
+        "WEBHOOKS": {"data": None, "typeOf": AddressKList, "required": False},
     }
     def __init__(
         self,
@@ -34,18 +34,18 @@ class WebhookServer():
         shinobiPort: int,
         shinobiApiKey: str,
         groupKey: str,
+        webhooks: AddressKList,
         port: int,
-        client: TrustList,
         toNotify: list,
         application,
     ) -> None:
         self.app: Quart = Quart(import_name=__name__)
         self.baseUrl = baseUrl
-        self.port = port
         self.shinobiPort = shinobiPort
         self.shinobiApiKey = shinobiApiKey
         self.groupKey = groupKey
-        self.client = client
+        self.webhooks = webhooks
+        self.port = port
         self.APPLICATION: Application = application
         self.snapshotUrl = "".join([baseUrl.url, ":", str(object=self.shinobiPort), "/", shinobiApiKey, "/jpeg/", groupKey])
         self.toNotify = toNotify
@@ -85,7 +85,7 @@ class WebhookServer():
             title = messageDict["info"].get("title", None)
             if "eventDetails" in messageDict["info"].keys():
                 reason = messageDict["info"]["eventDetails"].get("reason", None)
-                confidence = messageDict["info"]["eventDetails"].get("confidence", None)
+                matrices = messageDict["info"]["eventDetails"].get("matrices", None)
             if mid:
                 url = f"{self.baseUrl}:{self.shinobiPort}/{self.shinobiApiKey}/monitor/{self.groupKey}/{mid}"
                 data = await queryUrl(url=url)
@@ -109,10 +109,17 @@ class WebhookServer():
             "<b>WARNING:</b>\n"
             + (f"Title: <b>{title}</b>\n" if 'title' in locals() else "")
             + (f"Description: <b>{description}</b>\n" if 'description' in locals() else "")
-            + (f"Reason: <b>{reason}</b>\n" if 'reason' in locals() else "")  # TODO add emoticons
             + (f"Name: <b>{name}</b>\n" if 'name' in locals() else "")
-            + (f"Confidence: <b>{confidence}</b>\n" if 'confidence' in locals() else "")
+            + (f"Reason: <b>{reason}</b>\n" if 'reason' in locals() else "")  # TODO add emoticons
         )
+        if matrices:
+            for matrice in matrices:
+                messageToSend += (
+                    f"Matrice: <b>{matrice['id']}</b>\n"
+                    + (f"  Tag: <b>{matrice['tag']}</b>\n" if 'tag' in matrice.keys() else "")
+                    + (f"  Confidence: <b>{matrice['confidence']}</b>\n" if 'confidence' in matrice.keys() else "")
+                    + (f"  Is zombie: <b>{matrice['isZombie']}</b>\n" if 'isZombie' in matrice.keys() else "")
+                )
         if files:
             mediaGroup = self.mediaGroupFormatter(
                 files=files, messageToSend=messageToSend
@@ -136,7 +143,30 @@ class WebhookServer():
                     await self.APPLICATION.bot.send_message(
                         chat_id=user, text=messageToSend, parse_mode="HTML"
                     )
+        # if self.webhooks:
+        #     await self. webhookcalls(webhooks=self.webhooks, tags=tags)
         return Response(response="Success", status=200)
+
+    async def webhookcalls(self, webhooks: AddressKList, tags: list) -> None:
+        for tag, webhook in webhooks.items():
+            if tag in tags:
+                print("OK", "TAG:", tag, "WEBHOOK:", webhook)
+                try:
+                    await queryUrl(
+                        url=f"{webhook}/alarm",
+                        debug=True,
+                    )
+                except Exception as e:
+                    logger.error(msg=f"Error calling webhook {webhook}: {e}")
+
+            # for tag, webhook in self.webhooks.items():
+            #     asyncio.create_task(
+            #         coro=queryUrl(
+            #             url=f"{self.webhooks[webhook]}/alarm",
+            #             debug=True,
+            #             timeout=20,
+            #         )
+            #     )
 
     def mediaGroupFormatter(self, files: dict, messageToSend: str) -> list[InputMediaPhoto]:
         mediaGroup = []
