@@ -53,7 +53,7 @@ the string '10' entered by the user will become an integer.
 This module also provide for you Url, LogLevel, IP, TustList, StaleTime and Cls classes; If you want to use them, you
 must import these classes from this module and use as a typeOf:
 
-from settings import IniSettings, Url, IP, LogLevel, TrustList, StaleTime, Cls
+from settings import IniSettings, Url, IP, LogLevel, AddressKList, StaleTime, Cls
 
 Is important to know that if initial data is not None this will be the default value for this costant
 and settings will not ask the user to enter this data, but if you also provide same option on the config file
@@ -160,7 +160,7 @@ class Url:
         self._url, self.ip, self.port = self._verify(url=value)
 
 
-class TrustList(dict):
+class AddressKList(dict):
     """
     This class represent a flat dictionary of trusted Url or IP like servers, clients etc.
     The dictionary is in the form of:
