@@ -115,10 +115,10 @@ class WebhookServer():
         if matrices:
             for matrice in matrices:
                 messageToSend += (
-                    f"Matrice: <b>{matrice['id']}</b>\n"
-                    + (f"  Tag: <b>{matrice['tag']}</b>\n" if 'tag' in matrice.keys() else "")
-                    + (f"  Confidence: <b>{matrice['confidence']}</b>\n" if 'confidence' in matrice.keys() else "")
-                    + (f"  Is zombie: <b>{matrice['isZombie']}</b>\n" if 'isZombie' in matrice.keys() else "")
+                    (f"Matrice: <b>{matrice['id']}</b>\n" if 'id' in matrice.keys() else "")
+                    + (f"Tag: <b>{matrice['tag']}</b>\n" if 'tag' in matrice.keys() else "")
+                    + (f"Confidence: <b>{matrice['confidence']}</b>\n" if 'confidence' in matrice.keys() else "")
+                    + (f"Is zombie: <b>{matrice['isZombie']}</b>\n" if 'isZombie' in matrice.keys() else "")
                 )
         if files:
             mediaGroup = self.mediaGroupFormatter(
