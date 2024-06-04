@@ -4,12 +4,12 @@ from telegram import InputMediaPhoto
 import logging
 from httpQueryUrl import queryUrl
 import hashlib
-import time
 import json
 from quart import Quart, request, Response, abort
 from urllib.parse import unquote
 from typing import Any
-import asyncio
+import time
+# import asyncio
 
 logger = logging.getLogger(name=__name__)
 '''
@@ -17,6 +17,7 @@ When jpeg api is not enabled for a specific monitor, shinobi sends an image as
 placeholder, below a constant with the value of its hash
 '''
 PLACEHOLDERMD5 = "2a7127c16b2389474c41bc112618462f"
+localTime: float | None = None
 
 class WebhookServer():
     """
@@ -27,6 +28,7 @@ class WebhookServer():
         "SERVER": {"data": False, "typeOf": bool, "required": False},
         "PORT": {"data": 5001, "typeOf": int, "required": False},
         "WEBHOOKS": {"data": None, "typeOf": AddressKList, "required": False},
+        "REQUESTS_RATE_LIMIT": {"data": 10, "typeOf": float, "required": False},
     }
     def __init__(
         self,
@@ -36,6 +38,7 @@ class WebhookServer():
         groupKey: str,
         webhooks: AddressKList,
         port: int,
+        requestsRateLimit: float,
         toNotify: list,
         application,
     ) -> None:
@@ -46,6 +49,7 @@ class WebhookServer():
         self.groupKey = groupKey
         self.webhooks = webhooks
         self.port = port
+        self.requestsRateLimit = requestsRateLimit
         self.APPLICATION: Application = application
         self.snapshotUrl = "".join([baseUrl.url, ":", str(object=self.shinobiPort), "/", shinobiApiKey, "/jpeg/", groupKey])
         self.toNotify = toNotify
@@ -72,11 +76,17 @@ class WebhookServer():
         await self.app.shutdown()
 
     async def notifier(self) -> Response:
+        global localTime
+        if self.requestsRateLimit and localTime:
+            if time.time() - localTime < self.requestsRateLimit:
+                logger.warning(msg="Rate limit exceeded, returning 429 error code...")
+                abort(code=429, description="Rate limit exceeded")
         try:
             message = unquote(string=request.query_string).lstrip("message=")
             if not message:
                 logger.error(msg=f"Missing message query parameter...")
                 abort(code=400, description="Missing message query parameter")
+            localTime = time.time()  # anti flooding filter
             messageDict = json.loads(s=message)
             logger.debug(msg=f"Received message: {message}")
             files = await request.files

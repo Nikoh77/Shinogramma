@@ -693,6 +693,8 @@ def notifyServerStart() -> None:
         group_key = SETTINGS["SHINOBI"]["GROUP_KEY"]["data"]
     if isinstance(SETTINGS["WEBHOOK"]["WEBHOOKS"], dict):
         webhooks = SETTINGS["WEBHOOK"]["WEBHOOKS"]["data"]
+    if isinstance(SETTINGS["WEBHOOK"]["REQUESTS_RATE_LIMIT"], dict):
+        requestsRateLimit = SETTINGS["WEBHOOK"]["REQUESTS_RATE_LIMIT"]["data"]
     if isinstance(SETTINGS["WEBHOOK"]["PORT"], dict):
         port = SETTINGS["WEBHOOK"]["PORT"]["data"]
     list1: list = chat_id
@@ -712,6 +714,7 @@ def notifyServerStart() -> None:
         groupKey=group_key,
         webhooks=webhooks,
         port=port,
+        requestsRateLimit=requestsRateLimit,
         toNotify=toNotify,
         application=APPLICATION,
     )
