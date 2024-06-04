@@ -11,7 +11,7 @@ You only need to enable event notifications via webhook in your account settings
 Please replace the IP address with the actual one; the port can be changed through the appropriate parameter in the configuration file (more information can be found on this page).\
 Shinogramma will be listening on that endpoint for POST and GET requests (I recommend choosing POST); to receive images of events, you also need to enable the JPG API in the settings of each monitor.\
 This notification system seems to perform much better than the one integrated in Shinobi, but the choice is yours.
-NOTE: to avoid too many notifications, play with the "Allow Next Trigger" parameter of the "Detector Settings" section of each monitor (5000 or 10000 should be fine).
+NOTE: due to a bug in Shinobi, please not play with the "Allow Next Trigger" parameter of the "Detector Settings" section of each monitor because if you fill this field, enabling custom setting, strange or unexpected things may happen with notifications...instead use the "REQUESTS_RATE_LIMIT" (look below) parameter in Shinogramma.
 ## Commands:
 Shinogramma is always under development, although it already works very well and has many functions, so commands and things he can do can increase, also maybe with your help; a good place to start is the /help command\
 Let's say that with him, you'll be able to take real-time snapshots, view recorded or live videos, modify monitors, and activate states.\
@@ -58,7 +58,8 @@ persistence - optional - default: false - old buttons in the chat with the bot w
 bans - optional - default: none - this parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
 [WEBHOOK]
 server - optional - default: false - set to true (or 1) to enable event notifications.
-webhook_port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
+port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
+requests_rate_limit - optional - default: 10 - the minimum time between the notification of one event and the next, to avoid notification bombs by Shinobi.
 webhooks - optional - default: none - a flat dictionary where keys are tag and values are endpoint/url to call; if Shinobi triggers an event with this tag Shinogramma call url in the value. You can define tags for each monitor on its identity section.
 ```
 Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
