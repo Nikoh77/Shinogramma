@@ -4,7 +4,6 @@
 
 import asyncio
 import signal
-from tkinter import SE
 from telegram.ext import (
     Application,
     ApplicationBuilder,

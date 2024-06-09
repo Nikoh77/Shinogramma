@@ -2,7 +2,6 @@ import logging
 from httpQueryUrl import queryUrl
 import inspect
 import m3u8  # type: ignore
-import json
 import time
 import io
 from datetime import datetime

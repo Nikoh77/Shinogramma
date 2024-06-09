@@ -1,5 +1,4 @@
 import logging
-import requests
 import json  # for debug only, can be removed when all work fine...
 import httpx
 
@@ -24,7 +23,7 @@ async def queryUrl(
                         f"{type(data)}\nData: {json.dumps(obj=data, indent=4)}\nServer response:\n{response.text}"
                     )
                 return response
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             logger.critical(
                 msg=f"Error something went wrong, request-->connection error: \n{e}"
             )

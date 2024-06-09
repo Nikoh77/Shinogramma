@@ -131,4 +131,5 @@ bin/shinogramma.build/
 bin/shinogramma.dist/
 bin/shinogramma.onefile-build/
 nuitka_compile_command.txt
+pipreqs_command.txt
 shinogramma.log
