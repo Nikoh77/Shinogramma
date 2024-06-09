@@ -3,8 +3,7 @@
 # or donate me a coffee
 
 import asyncio
-from email.mime import base
-from flask import g
+import signal
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -73,7 +72,7 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
         "PERSISTENCE": {"data": False, "typeOf": bool, "required": False},
         "BANS": {"data": None, "typeOf": dict, "required": False},
     },
-    "WEBHOOK": {"INCLUDE": WebhookServer},  # TODO aggiornare README
+    "WEBHOOK": {"INCLUDE": WebhookServer},
 }
 # Defining root variables
 commands: list = []
@@ -565,6 +564,9 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             chat_id=chat_id, text="Shinogramma terminated"
                         )
                         shutdownEvent.set()
+                        # raise SystemExit
+                        # await appShutdown()
+                        # os.kill(os.getpid(), signal.SIGINT)
 
 
 @restricted
@@ -719,27 +721,38 @@ def notifyServerStart() -> None:
         application=APPLICATION,
     )
 
-async def starter() -> None:
-    if APPLICATION:
-        await APPLICATION.initialize()
-        await APPLICATION.start()
-        if APPLICATION.updater:
-            await APPLICATION.updater.start_polling(drop_pending_updates=True)
-        if SERVERAPI:
-            asyncio.create_task(coro=SERVERAPI.runServer())
-        await shutdownEvent.wait()
+async def starter(app: Application) -> None:
+    loop = asyncio.get_event_loop()
+    taskList: list[asyncio.tasks.Task] = []
+    await app.initialize()
+    await app.start()
+    if app.updater:
+        taskList.append(asyncio.create_task(coro=app.updater.start_polling(drop_pending_updates=True), name="Polling"))
+    if SERVERAPI:
+        task = await SERVERAPI.runServer()
+        if task:
+            taskList.append(task)
+    # await asyncio.sleep(delay=1)
+    for signame in ("SIGINT", "SIGTERM"):
+        loop.add_signal_handler(
+            sig=getattr(signal, signame),
+            callback=lambda: asyncio.create_task(coro=appShutdown(), name="Shutdown"),
+        )
+    if await shutdownEvent.wait():
         await appShutdown()
 
-
 async def appShutdown() -> None:
-    print("shutting down2")
-    if SERVERAPI:
-        await SERVERAPI.stopServer()
-    if APPLICATION:
-        if APPLICATION.updater:
-            await APPLICATION.updater.stop()
-            await APPLICATION.stop()
-            await APPLICATION.shutdown()
+    if shutdownEvent.is_set():
+        logger.info(msg="ShinogrammaBot shutting down")
+        if SERVERAPI and SERVERAPI.isRunning:
+            await SERVERAPI.stopServer()
+        if APPLICATION:
+            if APPLICATION.updater:
+                await APPLICATION.updater.stop()
+                await APPLICATION.stop()
+                await APPLICATION.shutdown()
+    else:
+        shutdownEvent.set()
 
 
 if __name__ == "__main__":
@@ -767,5 +780,5 @@ if __name__ == "__main__":
         if SETTINGS["WEBHOOK"]["SERVER"]["data"]:
             from notify import WebhookServer
             notifyServerStart()
-        asyncio.run(main=starter())
+        asyncio.run(main=starter(app=APPLICATION))
     logger.info(msg="ShinogrammaBot terminated")
