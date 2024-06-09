@@ -43,7 +43,6 @@ class WebhookServer():
         application,
     ) -> None:
         self.app: Quart = Quart(import_name=__name__)
-        self.isRunning = False
         self.baseUrl = baseUrl
         self.shinobiPort = shinobiPort
         self.shinobiApiKey = shinobiApiKey
@@ -68,7 +67,6 @@ class WebhookServer():
 
     async def runServer(self) -> asyncio.Task[None] | None:
         try:
-            self.isRunning = True
             return asyncio.create_task(coro=self.app.run_task(host="0.0.0.0", port=self.port, debug=False), name="WebhookServer")
         except Exception as e:
             logger.warning(msg=f"Error running HTTP Server: {e}")
@@ -77,7 +75,6 @@ class WebhookServer():
     async def stopServer(self):
         logger.debug(msg="Shutting down HTTP Server...")
         await self.app.shutdown()
-        self.isRunning = False
 
     async def notifier(self) -> Response:
         global localTime

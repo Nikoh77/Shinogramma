@@ -4,6 +4,7 @@
 
 import asyncio
 import signal
+from tkinter import SE
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -34,6 +35,7 @@ from settings import IniSettings, Url, IP, LogLevel
 from monitor import Monitor
 from pathlib import Path
 from video import Video
+import socket
 """
 Below constant is required to set the log level only for some modules directly involved by
 this application and avoid seeing the debug of all modules in the tree.
@@ -721,6 +723,18 @@ def notifyServerStart() -> None:
         application=APPLICATION,
     )
 
+
+def server_running(server) -> bool:
+    logger.debug(msg="Check for Webhook server is running...")
+    with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
+        code = sock.connect_ex(("localhost", server.port))
+        if code == 0:
+            logger.debug(msg="Webhook server is running")
+            return True
+        logger.debug(msg="Webhook server is not running")
+        return False
+
+
 async def starter(app: Application) -> None:
     loop = asyncio.get_event_loop()
     taskList: list[asyncio.tasks.Task] = []
@@ -732,7 +746,13 @@ async def starter(app: Application) -> None:
         task = await SERVERAPI.runServer()
         if task:
             taskList.append(task)
-    # await asyncio.sleep(delay=1)
+            attempt: int = 0
+            while not server_running(server=SERVERAPI):
+                attempt += 1
+                if attempt > 10:
+                    logger.error(msg="Webhook server not ready, start Shinogramma whitout it")
+                    break
+                await asyncio.sleep(delay=1)
     for signame in ("SIGINT", "SIGTERM"):
         loop.add_signal_handler(
             sig=getattr(signal, signame),
@@ -744,8 +764,9 @@ async def starter(app: Application) -> None:
 async def appShutdown() -> None:
     if shutdownEvent.is_set():
         logger.info(msg="ShinogrammaBot shutting down")
-        if SERVERAPI and SERVERAPI.isRunning:
-            await SERVERAPI.stopServer()
+        if SERVERAPI:
+            if server_running(server=SERVERAPI):
+                await SERVERAPI.stopServer()
         if APPLICATION:
             if APPLICATION.updater:
                 await APPLICATION.updater.stop()
