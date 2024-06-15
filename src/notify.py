@@ -10,6 +10,7 @@ from urllib.parse import unquote
 from typing import Any
 import time
 import asyncio
+import socket
 
 logger = logging.getLogger(name=__name__)
 '''
@@ -75,6 +76,17 @@ class WebhookServer():
     async def stopServer(self):
         logger.debug(msg="Shutting down HTTP Server...")
         await self.app.shutdown()
+
+
+    def isRunning(self) -> bool:
+        logger.debug(msg="Check for Webhook server is running...")
+        with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
+            code = sock.connect_ex(("localhost", self.port))
+            if code == 0:
+                logger.debug(msg="Webhook server is running")
+                return True
+            logger.debug(msg="Webhook server is not running")
+            return False
 
     async def notifier(self) -> Response:
         global localTime
