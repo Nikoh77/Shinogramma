@@ -10,7 +10,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, error
 
 logger = logging.getLogger(name=__name__)
 
-
 class Monitor:
     def __init__(
         self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid
@@ -24,6 +23,7 @@ class Monitor:
         self.GROUP_KEY = groupKey
         self.MID = mid
         self.url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/monitor/{self.GROUP_KEY}/{self.MID}"
+        self.SUBSTREAM_CHANNEL = 1
         self.query = update.callback_query
 
     async def getSnapshot(self) -> bool:
@@ -53,7 +53,7 @@ class Monitor:
                 if isinstance(e, error.TelegramError):
                     logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
                 else:
-                    raise e
+                    logger.error(msg=f"Error in {HERE.f_code.co_name}:\n {e}")
         else:
             logger.error(msg="Error something went wrong requesting snapshot")
         return False
@@ -64,17 +64,33 @@ class Monitor:
         data = await queryUrl(url=self.url)
         if data:
             dataInJson = data.json()
-            """Defining Shinobi's streaming capabilities"""
-            streamTypes: dict[str, str] = {
-                "hls": "/s.m3u8",
-                "mjpeg": "",
-                "flv": "/s.flv",
-                "mp4": "/s.mp4",
-            }
-            streamType = dataInJson[0]["details"]["stream_type"]
-            try:
-                if streamType in streamTypes.keys():
-                    streamUrl = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/{streamType}/{self.GROUP_KEY}/{self.MID}{streamTypes[streamType]}"
+            if dataInJson[0]["details"]["stream_type"] == "useSubstream":
+                logger.debug(msg="This monitor is set to use substream...")
+                subStreamActive = dataInJson[0]["subStreamActive"]
+                logger.debug(msg=f"substream active: {subStreamActive}")
+                if not subStreamActive:
+                    activated = await queryUrl(
+                        url=f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/toggleSubstream/{self.GROUP_KEY}/{self.MID}"
+                    )
+                    if activated and "ok" in activated.json().keys() and activated.json()["ok"]:
+                        logger.debug(msg=f"Substream activated")
+                    else:
+                        logger.error(msg=f"Error activating substream")
+                        await self.query.answer(
+                            text="Error activating substream \u26A0\ufe0f", show_alert=True
+                        )
+                        return False
+            streams = dataInJson[0]["streams"]
+            if not streams:
+                logger.info(msg="No streams found for this monitor...")
+                await self.CONTEXT.bot.send_message(
+                    chat_id=self.CHAT_ID,
+                    text="No streams found for this monitor...\u26A0\ufe0f"
+                )
+            elif len(streams) == 1:
+                streamUrl = f"{self.BASEURL}{streams[0]}"
+                try:
+                    logger.debug(msg=f"Only one stream found, sending it: {streamUrl}")
                     pList = m3u8.M3U8()
                     pList.add_playlist(playlist=streamUrl)
                     vFile = io.StringIO(initial_value=pList.dumps())
@@ -93,21 +109,19 @@ class Monitor:
                     )
                     vFile.close()
                     return True
-                else:
-                    logger.info(
-                        msg="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg..."
-                    )
-                    await self.CONTEXT.bot.send_message(
-                        chat_id=self.CHAT_ID,
-                        text="If streaming exists it is an unsupported format, it should be hls, mp4 or mjpeg... \u26A0\ufe0f",
-                    )
-            except Exception as e:
-                if isinstance(e, error.TelegramError):
-                    logger.error(msg=f"PTB error in {HERE.f_code.co_name}:\n {e}")
-                else:
-                    raise e
+                except Exception as e:
+                    if isinstance(e, error.TelegramError):
+                        logger.error(msg=f"Python Telegram Bot error in {HERE.f_code.co_name}:\n {e}")
+                    else:
+                        logger.error(msg=f"Error in {HERE.f_code.co_name}:\n {e}")
+            else:
+                logger.info(msg="More than one stream found, still not supported yet...")
+                await self.CONTEXT.bot.send_message(
+                    chat_id=self.CHAT_ID,
+                    text="More than one stream found, still not supported yet...\u26A0\ufe0f",
+                )
         else:
-            logger.error(msg="Error something went wrong requesting stream")
+            logger.error(msg="Error something went wrong requesting monitor stream data to Shinobi...")
         return False
 
     async def getVideo(self, index=None) -> bool:
