@@ -108,7 +108,6 @@ Feel free to expand my code with new features or simply clean it up and/or make 
 ### FINAL NOTES:
 I already implemented the code for:
 * Restrict API/webhooks calls to single or a list of IPs
-* webhook call when an event is triggered,
 * Custom/configurable webhooks calls through the bot/chat like to open a gate or to arm an alarm system.\
 * monitors configuration through conversation/chat, but I need better API documentation.
 
