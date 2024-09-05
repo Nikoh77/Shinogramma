@@ -5,3 +5,4 @@ humanize
 m3u8
 python-telegram-bot
 quart
+git+https://github.com/Nikoh77/settings.git@main

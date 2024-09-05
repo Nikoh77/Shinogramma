@@ -767,7 +767,7 @@ if __name__ == "__main__":
     mySettings = IniSettings(neededSettings=SETTINGS, configFile=CONFIG_FILE)
     if not mySettings.iniRead():
         logger.critical(
-            msg="Error building and or retrieving settings from config file, exiting..."
+            msg="Error building and/or retrieving settings from config file, exiting..."
         )
         raise SystemExit
     setLogLevel()
