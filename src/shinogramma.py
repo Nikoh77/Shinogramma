@@ -57,7 +57,6 @@ constant.
 This constant is passed to the `settings` class; more info on the settings.py file.
 """
 SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
-    # SETTINGS: dict[str, dict[str, dict[str, Any]]] = {
     "TELEGRAM": {
         "CHAT_ID": {"data": None, "typeOf": list, "required": False},
         "API_KEY": {"data": None, "typeOf": str, "required": True},
