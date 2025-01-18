@@ -3,6 +3,7 @@
 # or donate me a coffee
 
 import asyncio
+from re import S
 import signal
 from telegram.ext import (
     Application,
@@ -68,11 +69,14 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
         "PORT": {"data": 8080, "typeOf": int, "required": True},
     },
     "SHINOGRAMMA": {
+        # log level chosen in the config file is applied after settings are loaded
+        # so if you want to debug how settings are loaded you must change LOGLEVEL here also
         "LOGLEVEL": {"data": "info", "typeOf": LogLevel, "required": False},
         "PERSISTENCE": {"data": False, "typeOf": bool, "required": False},
         "BANS": {"data": None, "typeOf": dict, "required": False},
     },
     "WEBHOOK": {"INCLUDE": WebhookServer},
+    "MONITOR": {"INCLUDE": Monitor},
 }
 # Defining root variables
 commands: list = []
@@ -133,7 +137,6 @@ setLogLevel()
 # Start decorators section
 def restricted(func):
     """Restrict chat only with id(es) defined in config.ini"""
-
     @wraps(wrapped=func)
     async def wrapped(update, context, *args, **kwargs):
         if update is not None and context is not None:
@@ -146,25 +149,18 @@ def restricted(func):
         else:
             chat_id = 11111
         return await func(update, context, chat_id, *args, **kwargs)
-
     return wrapped
-
 
 def send_action(action):
     """Sends `action` while processing func command."""
-
     def decorator(func):
         @wraps(wrapped=func)
         async def command_func(update, context, *args, **kwargs):
             chat_id = update.effective_user.id
             await context.bot.send_chat_action(chat_id=chat_id, action=action)
             return await func(update, context, *args, **kwargs)
-
         return command_func
-
     return decorator
-
-
 # End decorators section
 
 
@@ -497,16 +493,22 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         name=choice,
                     )
                 elif tag == "monitors_subcommand":
-                    thisMonitor = Monitor(
-                        update=update,
-                        context=context,
-                        chatId=chat_id,
-                        baseUrl=base_url,
-                        port=port,
-                        apiKey=api_key,
-                        groupKey=group_key,
-                        mid=mid,
-                    )
+                    if isinstance(SETTINGS["MONITOR"]["PROXY_PAGE_URL"], dict):
+                        proxyPageUrl = SETTINGS["MONITOR"]["PROXY_PAGE_URL"]["data"]
+                    if isinstance(SETTINGS["MONITOR"]["TIMEOUT"], dict):
+                        timeout = SETTINGS["MONITOR"]["TIMEOUT"]["data"]
+                        thisMonitor = Monitor(
+                            update=update,
+                            context=context,
+                            chatId=chat_id,
+                            baseUrl=base_url,
+                            port=port,
+                            apiKey=api_key,
+                            groupKey=group_key,
+                            mid=mid,
+                            proxyPageUrl=proxyPageUrl,
+                            timeout=timeout
+                        )
                     if choice == "snapshot":
                         if not await thisMonitor.getSnapshot():
                             await context.bot.send_message(

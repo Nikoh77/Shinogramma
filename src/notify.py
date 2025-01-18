@@ -5,7 +5,7 @@ import logging
 from httpQueryUrl import queryUrl
 import hashlib
 import json
-from quart import Quart, request, Response, abort
+from quart import Quart, request, Response, abort, render_template_string
 from urllib.parse import unquote
 from typing import Any
 import time
@@ -41,7 +41,7 @@ class WebhookServer():
         port: int,
         requestsRateLimit: float,
         toNotify: list,
-        application,
+        application
     ) -> None:
         self.app: Quart = Quart(import_name=__name__)
         self.baseUrl = baseUrl
@@ -77,15 +77,14 @@ class WebhookServer():
         logger.debug(msg="Shutting down HTTP Server...")
         await self.app.shutdown()
 
-
     def isRunning(self) -> bool:
-        logger.debug(msg="Check for Webhook server is running...")
+        logger.debug(msg="Check for Web server is running...")
         with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
             code = sock.connect_ex(("localhost", self.port))
             if code == 0:
-                logger.debug(msg="Webhook server is running")
+                logger.debug(msg="Web server is running")
                 return True
-            logger.debug(msg="Webhook server is not running")
+            logger.debug(msg="Web server is not running")
             return False
 
     async def notifier(self) -> Response:

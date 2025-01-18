@@ -1,19 +1,26 @@
 import logging
 from httpQueryUrl import queryUrl
 import inspect
-import m3u8  # type: ignore
 import time
-import io
 from datetime import datetime
 import humanize
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, error
+from typing import Any
+from settings import Url
 
 logger = logging.getLogger(name=__name__)
 
 class Monitor:
+    """
+    A class representing one Shinobi monitor.
+    """
+    SETTINGS: dict[str, object | dict[str, Any]] = {
+        "PROXY_PAGE_URL": {"data": None, "typeOf": Url, "required": True},
+        "TIMEOUT": {"data": 5000, "typeOf": int, "required": False}, # in milliseconds
+    }
     def __init__(
-        self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid
-    ) -> None:
+        self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid,
+        proxyPageUrl, timeout) -> None:
         self.UPDATE = update
         self.CONTEXT = context
         self.CHAT_ID = chatId
@@ -22,8 +29,10 @@ class Monitor:
         self.API_KEY = apiKey
         self.GROUP_KEY = groupKey
         self.MID = mid
+        self.proxyPageUrl = proxyPageUrl
+        self.timeout = timeout
         self.url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/monitor/{self.GROUP_KEY}/{self.MID}"
-        self.SUBSTREAM_CHANNEL = 1
+        # self.SUBSTREAM_CHANNEL = 1
         self.query = update.callback_query
 
     async def getSnapshot(self) -> bool:
@@ -61,7 +70,7 @@ class Monitor:
     async def getStream(self) -> bool:
         HERE = inspect.currentframe()
         assert HERE is not None
-        data = await queryUrl(url=self.url)
+        data = await queryUrl(url=self.url, debug=False)
         if data:
             dataInJson = data.json()
             if dataInJson[0]["details"]["stream_type"] == "useSubstream":
@@ -90,24 +99,31 @@ class Monitor:
             elif len(streams) == 1:
                 streamUrl = f"{self.BASEURL}{streams[0]}"
                 try:
-                    logger.debug(msg=f"Only one stream found, sending it: {streamUrl}")
-                    pList = m3u8.M3U8()
-                    pList.add_playlist(playlist=streamUrl)
-                    vFile = io.StringIO(initial_value=pList.dumps())
-                    thumbnailFile = open(file="images/shinthumbnail.jpeg", mode="rb")
-                    avoidCacheUrl = str(object=int(time.time()))
-                    buttons = [[InlineKeyboardButton(text="link", url=streamUrl)]]
-                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                    await self.CONTEXT.bot.send_document(
-                        caption="With IOS use the link below, otherwise above file will be fine",
-                        chat_id=self.CHAT_ID,
-                        document=vFile,
-                        filename=f"stream" + avoidCacheUrl + ".m3u8",
-                        protect_content=False,
-                        thumbnail=thumbnailFile,
-                        reply_markup=reply_markup,
-                    )
-                    vFile.close()
+                    if streamUrl.endswith(".m3u8"):
+                        logger.debug(msg=f"Only one stream found: {streamUrl}, sending to proxy page: {self.proxyPageUrl}")
+                        url = f"{self.proxyPageUrl}?timeout={self.timeout}&url={streamUrl}"
+                        buttons = [[InlineKeyboardButton(text="link", url=url)]]
+                        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                        await self.CONTEXT.bot.send_message(
+                            chat_id=self.CHAT_ID,
+                            text="Click to open stream:",
+                            reply_markup=reply_markup,
+                        )
+                    else:
+                        logger.debug(
+                            msg=("Only one stream found but not HLS, "
+                                "sending link to use with an external player like"
+                                f"VLC: {streamUrl}"
+                            )
+                        )
+                        #url = f"{self.proxyPageUrl}?timeout={self.timeout}&url={streamUrl}"
+                        buttons = [[InlineKeyboardButton(text="link", url=streamUrl)]]
+                        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                        await self.CONTEXT.bot.send_message(
+                            chat_id=self.CHAT_ID,
+                            text="Open this link with an external player like VLC:",
+                            reply_markup=reply_markup,
+                        )
                     return True
                 except Exception as e:
                     if isinstance(e, error.TelegramError):
