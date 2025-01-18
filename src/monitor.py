@@ -116,7 +116,6 @@ class Monitor:
                                 f"VLC: {streamUrl}"
                             )
                         )
-                        #url = f"{self.proxyPageUrl}?timeout={self.timeout}&url={streamUrl}"
                         buttons = [[InlineKeyboardButton(text="link", url=streamUrl)]]
                         reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
                         await self.CONTEXT.bot.send_message(
