@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shinobi live streaming - proxy page</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            overflow: hidden;
+        }
+        #result {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 1.2em;
+        }
+        #player {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <div id="result">Checking...</div>
+    <div id="player">
+        <video id="video" 
+               controls 
+               autoplay
+               muted
+               playsinline 
+               webkit-playsinline="true"
+               x5-playsinline>
+        </video>
+    </div>
+
+    <script>
+        const streamUrl = new URLSearchParams(window.location.search).get('url');
+        const result = document.getElementById('result');
+        const player = document.getElementById('player');
+        const video = document.getElementById('video');
+
+        function startPlayer(url) {
+            result.style.display = 'none';
+            player.style.display = 'block';
+            
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                
+                // Forza autoplay
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(console.error);
+                });
+            } 
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.play().catch(console.error);
+            }
+        }
+
+        async function checkStream(url) {
+            if (!url.toLowerCase().endsWith('.m3u8')) {
+                console.log('Invalid format: not an HLS stream');
+                result.textContent = 'Video requested is not in HLS standard - HTTP Live Streaming';
+                return;
+            }
+
+            const timeout = parseInt(new URLSearchParams(window.location.search).get('timeout')) || 5000;
+            const startTime = Date.now();
+            
+            async function waitForStream() {
+                try {
+                    const response = await fetch(url);
+                    const data = await response.text();
+                    
+                    if (data.includes('#EXTM3U')) {
+                        console.log('Stream found, starting player...');
+                        startPlayer(url);
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Stream not ready yet...');
+                }
+
+                // Verifica timeout
+                if (Date.now() - startTime >= timeout) {
+                    console.log('Timeout reached');
+                    result.textContent = 'Timeout reached waiting for stream';
+                    return;
+                }
+
+                // Continua a verificare
+                setTimeout(waitForStream, 1000);
+            }
+
+            result.textContent = 'Waiting for stream...';
+            waitForStream();
+        }
+
+        if (streamUrl) {
+            checkStream(streamUrl);
+        } else {
+            result.textContent = 'Stream does not exist';
+        }
+    </script>
+</body>
+</html>
