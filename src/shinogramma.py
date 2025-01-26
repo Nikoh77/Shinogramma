@@ -3,7 +3,7 @@
 # or donate me a coffee
 
 import asyncio
-from re import S
+# from re import S
 import signal
 from telegram.ext import (
     Application,
@@ -18,12 +18,14 @@ from telegram.ext import (
     PersistenceInput,
 )
 from telegram import (
+    Bot,
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     constants,
 )
+from telegram.constants import ParseMode
 from functools import wraps
 import colorlog
 import logging
@@ -32,7 +34,7 @@ from typing import Callable, Any
 from httpQueryUrl import queryUrl
 from notify import WebhookServer
 from settings import IniSettings, Url, IP, LogLevel
-from monitor import Monitor
+from monitor import Monitor, SubStream
 from pathlib import Path
 from video import Video
 # import socket
@@ -82,6 +84,8 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
 commands: list = []
 confParam, confParamVal = range(2)
 shutdownEvent = asyncio.Event()
+activeSubstreams: list[dict[str, SubStream | int | str | None]] = []
+
 # Start logging
 logger = colorlog.getLogger(name=__name__)
 file_handler = logging.FileHandler(filename="shinogramma.log")
@@ -409,9 +413,7 @@ async def BOTsettings_command(
                         )
         return None
 
-
 # End Telegram/Bot commands definition:
-
 
 @send_action(action=constants.ChatAction.TYPING)
 async def monitors_subcommand(
@@ -525,7 +527,6 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                                 chat_id=chat_id,
                                 text="Error something went wrong, requesting stream \u26A0\ufe0f",
                             )
-
                     elif choice == "configure":
                         if context.user_data is not None:
                             context.user_data["from"] = choice
@@ -537,13 +538,60 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                     elif choice == "map":
                         if not await thisMonitor.getMap():
                             pass
-
                     elif choice == "videos":
                         if not await thisMonitor.getVideo():
                             await context.bot.send_message(
                                 chat_id=chat_id,
                                 text="Error something went wrong, requesting videos \u26A0\ufe0f",
                             )
+                elif tag == "getStream":
+                    subStream: SubStream = callbackFullData.get("subStream", None)
+                    try:
+                        if not await subStream.verifySubStream():
+                            if not await subStream.activateSubStream():
+                                logger.error(msg="Error activating substream.")
+                                await query.answer(
+                                    text=f"Error activating substream. \u26A0\ufe0f",
+                                    show_alert=True,
+                                )
+                                return
+                            logger.debug(msg="Substream activate successfully, sending link...")
+                            await query.answer(
+                                text=f"Substream activate successfully, sending link... \u26A0\ufe0f",
+                                show_alert=True,
+                            )
+                        else:
+                            logger.debug(msg="Substream already active, sending link...")
+                            await query.answer(
+                                text=f"Substream already active, sending link... \u26A0\ufe0f",
+                                show_alert=True,
+                            )
+                        message = await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f'<a href="{subStream.completeUrl}">Click to play</a>',
+                        parse_mode=ParseMode.HTML,
+                        )
+                        if not activeSubstreams:
+                            activeSubstreams.append({
+                                "message_id": message.message_id,
+                                "sub_stream": subStream,
+                                "sub_url": subStream.completeUrl
+                            })
+                        else:
+                            for activeSubstream in activeSubstreams:
+                                present = False
+                                if subStream.completeUrl == activeSubstream["sub_url"]:
+                                    present = True
+                                    break
+                            if not present:
+                                activeSubstreams.append({
+                                    "message_id": message.message_id,
+                                    "sub_stream": subStream,
+                                    "sub_url": subStream.completeUrl
+                                })
+                        print(activeSubstreams)
+                    except Exception as e:
+                        logger.error(msg=f"Error activating substream: {e}")
 
                 elif tag == "getVideo":
                     thisVideo = Video(

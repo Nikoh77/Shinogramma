@@ -16,7 +16,7 @@ class Monitor:
     """
     SETTINGS: dict[str, object | dict[str, Any]] = {
         "PROXY_PAGE_URL": {"data": None, "typeOf": Url, "required": True},
-        "TIMEOUT": {"data": 5000, "typeOf": int, "required": False}, # in milliseconds
+        "TIMEOUT": {"data": 6000, "typeOf": int, "required": False}, # in milliseconds
     }
     def __init__(
         self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid,
@@ -32,8 +32,13 @@ class Monitor:
         self.proxyPageUrl = proxyPageUrl
         self.timeout = timeout
         self.url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/monitor/{self.GROUP_KEY}/{self.MID}"
-        # self.SUBSTREAM_CHANNEL = 1
         self.query = update.callback_query
+        self.TYPES = {
+            "hls": "s.m3u8",
+            "mp4": "s.mp4",
+            "flv": "s.flv",
+            "mjpeg": "",
+        }
 
     async def getSnapshot(self) -> bool:
         HERE = inspect.currentframe()
@@ -70,25 +75,10 @@ class Monitor:
     async def getStream(self) -> bool:
         HERE = inspect.currentframe()
         assert HERE is not None
+        tag = HERE.f_code.co_name  # type: ignore
         data = await queryUrl(url=self.url, debug=False)
         if data:
             dataInJson = data.json()
-            if dataInJson[0]["details"]["stream_type"] == "useSubstream":
-                logger.debug(msg="This monitor is set to use substream...")
-                subStreamActive = dataInJson[0]["subStreamActive"]
-                logger.debug(msg=f"substream active: {subStreamActive}")
-                if not subStreamActive:
-                    activated = await queryUrl(
-                        url=f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/toggleSubstream/{self.GROUP_KEY}/{self.MID}"
-                    )
-                    if activated and "ok" in activated.json().keys() and activated.json()["ok"]:
-                        logger.debug(msg=f"Substream activated")
-                    else:
-                        logger.error(msg=f"Error activating substream")
-                        await self.query.answer(
-                            text="Error activating substream \u26A0\ufe0f", show_alert=True
-                        )
-                        return False
             streams = dataInJson[0]["streams"]
             if not streams:
                 logger.info(msg="No streams found for this monitor...")
@@ -96,48 +86,89 @@ class Monitor:
                     chat_id=self.CHAT_ID,
                     text="No streams found for this monitor...\u26A0\ufe0f"
                 )
-            elif len(streams) == 1:
-                streamUrl = f"{self.BASEURL}{streams[0]}"
+                return False
+            streamType = dataInJson[0]["details"]["stream_type"]
+            subStream = SubStream(monitor=self)
+            if streamType == "useSubstream":
+                logger.info(msg=f"Monitor {self.MID} is set to use substream...")
+                await subStream.verifySubStream(data=data)
+            else:
+                logger.info(msg=f"Monitor {self.MID} is set to use main stream...")
+                if subStream.endOfUrl not in streams:
+                    streams.append(subStream.endOfUrl)
+                    logger.debug(msg="Substream added to stream list...")
+            buttons: list[list] = []
+            for stream in streams:
+                streamUrl = f"{self.BASEURL}{stream}"
                 try:
-                    if streamUrl.endswith(".m3u8"):
-                        logger.debug(msg=f"Only one stream found: {streamUrl}, sending to proxy page: {self.proxyPageUrl}")
+                    if streamUrl.endswith(self.TYPES["hls"]) and self.proxyPageUrl:
+                        logger.debug(msg=f"Stream found: {streamUrl}, sending to proxy page: {self.proxyPageUrl}")
                         url = f"{self.proxyPageUrl}?timeout={self.timeout}&url={streamUrl}"
-                        buttons = [[InlineKeyboardButton(text="link", url=url)]]
-                        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                        await self.CONTEXT.bot.send_message(
-                            chat_id=self.CHAT_ID,
-                            text="Click to open stream:",
-                            reply_markup=reply_markup,
-                        )
+                        if stream == subStream.endOfUrl:
+                            buttons.append(
+                                [
+                                    InlineKeyboardButton(
+                                        text=f"{len(buttons)+1} Substream ACTIVATE",
+                                        callback_data={
+                                            "tag": tag,
+                                            "subStream": subStream,
+                                        },
+                                    )
+                                ]
+                            )
+                        else:
+                            buttons.append(
+                                [
+                                    InlineKeyboardButton(
+                                        text=f"{len(buttons)+1} Stream PLAY",
+                                        url=url,
+                                    )
+                                ]
+                            )
                     else:
                         logger.debug(
-                            msg=("Only one stream found but not HLS, "
+                            msg=("Stream found but not HLS, "
                                 "sending link to use with an external player like"
                                 f"VLC: {streamUrl}"
                             )
                         )
-                        buttons = [[InlineKeyboardButton(text="link", url=streamUrl)]]
-                        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                        await self.CONTEXT.bot.send_message(
-                            chat_id=self.CHAT_ID,
-                            text="Open this link with an external player like VLC:",
-                            reply_markup=reply_markup,
-                        )
-                    return True
+                        if stream == subStream.endOfUrl:
+                            buttons.append(
+                                [
+                                    InlineKeyboardButton(
+                                        text=f"{len(buttons)+1} Substream ACTIVATE",
+                                        callback_data={
+                                            "tag": tag,
+                                            "subStream": subStream,
+                                        },
+                                    )
+                                ]
+                            )
+                        else:
+                            buttons.append(
+                                [
+                                    InlineKeyboardButton(
+                                        text=f"{len(buttons)+1} Stream PLAY",
+                                        url=streamUrl,
+                                    )
+                                ]
+                            )
                 except Exception as e:
                     if isinstance(e, error.TelegramError):
                         logger.error(msg=f"Python Telegram Bot error in {HERE.f_code.co_name}:\n {e}")
                     else:
                         logger.error(msg=f"Error in {HERE.f_code.co_name}:\n {e}")
-            else:
-                logger.info(msg="More than one stream found, still not supported yet...")
-                await self.CONTEXT.bot.send_message(
-                    chat_id=self.CHAT_ID,
-                    text="More than one stream found, still not supported yet...\u26A0\ufe0f",
-                )
+                    return False
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+            await self.CONTEXT.bot.send_message(
+                chat_id=self.CHAT_ID,
+                text="Click to play:",
+                reply_markup=reply_markup,
+            )
         else:
             logger.error(msg="Error something went wrong requesting monitor stream data to Shinobi...")
-        return False
+            return False
+        return True
 
     async def getVideo(self, index=None) -> bool:
         HERE = inspect.currentframe()
@@ -244,4 +275,57 @@ class Monitor:
                 )
         else:
             logger.error(msg="Error something went wrong requesting configuration")
+        return False
+
+
+class SubStream:
+    """
+    A class representing a substream.
+    """
+    def __init__(
+        self,
+        monitor: Monitor,
+    ) -> None:
+        self.monitor = monitor
+        self.SUBSTREAM_CHANNEL = 1
+        self.toggleUrl = f"{self.monitor.BASEURL}:{self.monitor.PORT}/{self.monitor.API_KEY}/toggleSubstream/{self.monitor.GROUP_KEY}/{self.monitor.MID}"
+        self.kindOfStream: str | None = None
+        self.endOfUrl: str | None = None
+        self.completeUrl: str | None = None
+
+    async def verifySubStream(self, data = None) -> bool:
+        if not data:
+            logger.debug(msg="Requesting monitor data...")
+            data = await queryUrl(url=self.monitor.url, debug=False)
+        else:
+            logger.debug(msg="Using provided data...")
+        if data:
+            dataInJson = data.json()
+            self.kindOfStream = dataInJson[0]["details"]["substream"]["output"]["stream_type"]
+            if self.kindOfStream and self.kindOfStream in self.monitor.TYPES.keys():
+                self.endOfUrl = f"/{self.monitor.API_KEY}/{self.kindOfStream}/{self.monitor.GROUP_KEY}/{self.monitor.MID}/{self.SUBSTREAM_CHANNEL}/{self.monitor.TYPES[self.kindOfStream]}"
+                self.completeUrl = f"{self.monitor.BASEURL}:{self.monitor.PORT}{self.endOfUrl}"
+                if self.completeUrl.endswith(self.monitor.TYPES["hls"]) and self.monitor.proxyPageUrl:
+                    self.completeUrl = f"{self.monitor.proxyPageUrl}?timeout={self.monitor.timeout}&url={self.completeUrl}"
+                if dataInJson[0]["subStreamActive"]:
+                    logger.debug(msg=f"Substream active.")
+                    return True
+                else:
+                    logger.debug(msg=f"Substream inactive.")
+            else:
+                logger.error(msg="the stream is of unknown type.")
+        else:
+            logger.error(msg="Error something went wrong requesting monitor data.")
+        return False
+
+    async def activateSubStream(self) -> bool:
+        activated = await queryUrl(
+            url=self.toggleUrl,
+        )
+        if (
+            activated
+            and "ok" in activated.json().keys()
+            and activated.json()["ok"]
+        ):
+            return True
         return False
