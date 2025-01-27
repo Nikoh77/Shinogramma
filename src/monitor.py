@@ -16,11 +16,12 @@ class Monitor:
     """
     SETTINGS: dict[str, object | dict[str, Any]] = {
         "PROXY_PAGE_URL": {"data": None, "typeOf": Url, "required": True},
-        "TIMEOUT": {"data": 6000, "typeOf": int, "required": False}, # in milliseconds
+        "PROXY_PAGE_TIMEOUT": {"data": 6000, "typeOf": int, "required": False}, # in milliseconds
+        "VERIFY_ACTIVE_LINKS_TIMEOUT": {"data": 5, "typeOf": int, "required": False}, # in seconds
     }
     def __init__(
         self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid,
-        proxyPageUrl, timeout) -> None:
+        name, proxyPageUrl, proxyPageTimeout, verifyActiveLinksTimeout) -> None:
         self.UPDATE = update
         self.CONTEXT = context
         self.CHAT_ID = chatId
@@ -29,8 +30,10 @@ class Monitor:
         self.API_KEY = apiKey
         self.GROUP_KEY = groupKey
         self.MID = mid
+        self.name = name
         self.proxyPageUrl = proxyPageUrl
-        self.timeout = timeout
+        self.proxyPageTimeout = proxyPageTimeout
+        self.verifyActiveLinksTimeout = verifyActiveLinksTimeout
         self.url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/monitor/{self.GROUP_KEY}/{self.MID}"
         self.query = update.callback_query
         self.TYPES = {
@@ -88,7 +91,7 @@ class Monitor:
                 )
                 return False
             streamType = dataInJson[0]["details"]["stream_type"]
-            subStream = SubStream(monitor=self)
+            subStream = SubStream(monitor=self, verifyActiveLinksTimeout=self.verifyActiveLinksTimeout)
             if streamType == "useSubstream":
                 logger.info(msg=f"Monitor {self.MID} is set to use substream...")
                 await subStream.verifySubStream(data=data)
@@ -103,12 +106,12 @@ class Monitor:
                 try:
                     if streamUrl.endswith(self.TYPES["hls"]) and self.proxyPageUrl:
                         logger.debug(msg=f"Stream found: {streamUrl}, sending to proxy page: {self.proxyPageUrl}")
-                        url = f"{self.proxyPageUrl}?timeout={self.timeout}&url={streamUrl}"
+                        url = f"{self.proxyPageUrl}?timeout={self.proxyPageTimeout}&url={streamUrl}"
                         if stream == subStream.endOfUrl:
                             buttons.append(
                                 [
                                     InlineKeyboardButton(
-                                        text=f"{len(buttons)+1} Substream ACTIVATE",
+                                        text=f"{len(buttons)+1} ACTIVATE {self.name} substream",
                                         callback_data={
                                             "tag": tag,
                                             "subStream": subStream,
@@ -120,7 +123,7 @@ class Monitor:
                             buttons.append(
                                 [
                                     InlineKeyboardButton(
-                                        text=f"{len(buttons)+1} Stream PLAY",
+                                        text=f"{len(buttons)+1} PLAY {self.name} main stream",
                                         url=url,
                                     )
                                 ]
@@ -136,7 +139,7 @@ class Monitor:
                             buttons.append(
                                 [
                                     InlineKeyboardButton(
-                                        text=f"{len(buttons)+1} Substream ACTIVATE",
+                                        text=f"{len(buttons)+1} ACTIVATE {self.name} substream",
                                         callback_data={
                                             "tag": tag,
                                             "subStream": subStream,
@@ -148,7 +151,7 @@ class Monitor:
                             buttons.append(
                                 [
                                     InlineKeyboardButton(
-                                        text=f"{len(buttons)+1} Stream PLAY",
+                                        text=f"{len(buttons)+1} PLAY {self.name} main stream",
                                         url=streamUrl,
                                     )
                                 ]
@@ -162,7 +165,7 @@ class Monitor:
             reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
             await self.CONTEXT.bot.send_message(
                 chat_id=self.CHAT_ID,
-                text="Click to play:",
+                text=f"List of available streams for {self.name}:",
                 reply_markup=reply_markup,
             )
         else:
@@ -285,13 +288,15 @@ class SubStream:
     def __init__(
         self,
         monitor: Monitor,
+        verifyActiveLinksTimeout: int,
     ) -> None:
-        self.monitor = monitor
+        self.monitor: Monitor = monitor
         self.SUBSTREAM_CHANNEL = 1
-        self.toggleUrl = f"{self.monitor.BASEURL}:{self.monitor.PORT}/{self.monitor.API_KEY}/toggleSubstream/{self.monitor.GROUP_KEY}/{self.monitor.MID}"
+        self.toggleUrl:str = f"{self.monitor.BASEURL}:{self.monitor.PORT}/{self.monitor.API_KEY}/toggleSubstream/{self.monitor.GROUP_KEY}/{self.monitor.MID}"
         self.kindOfStream: str | None = None
         self.endOfUrl: str | None = None
         self.completeUrl: str | None = None
+        self.verifyActiveLinksTimeout: int = verifyActiveLinksTimeout
 
     async def verifySubStream(self, data = None) -> bool:
         if not data:
@@ -306,7 +311,7 @@ class SubStream:
                 self.endOfUrl = f"/{self.monitor.API_KEY}/{self.kindOfStream}/{self.monitor.GROUP_KEY}/{self.monitor.MID}/{self.SUBSTREAM_CHANNEL}/{self.monitor.TYPES[self.kindOfStream]}"
                 self.completeUrl = f"{self.monitor.BASEURL}:{self.monitor.PORT}{self.endOfUrl}"
                 if self.completeUrl.endswith(self.monitor.TYPES["hls"]) and self.monitor.proxyPageUrl:
-                    self.completeUrl = f"{self.monitor.proxyPageUrl}?timeout={self.monitor.timeout}&url={self.completeUrl}"
+                    self.completeUrl = f"{self.monitor.proxyPageUrl}?timeout={self.monitor.proxyPageTimeout}&url={self.completeUrl}"
                 if dataInJson[0]["subStreamActive"]:
                     logger.debug(msg=f"Substream active.")
                     return True

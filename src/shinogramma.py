@@ -84,7 +84,7 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
 commands: list = []
 confParam, confParamVal = range(2)
 shutdownEvent = asyncio.Event()
-activeSubstreams: list[dict[str, SubStream | int | str | None]] = []
+activeSubstreams: list[dict[str, Any]] = []
 
 # Start logging
 logger = colorlog.getLogger(name=__name__)
@@ -447,6 +447,7 @@ async def monitors_subcommand(
                                 "tag": tag,
                                 "choice": choice,
                                 "mid": mid,
+                                "name": name
                             },
                         )
                     ]
@@ -481,6 +482,7 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                 tag = callbackFullData.get("tag")
                 mid = callbackFullData.get("mid", None)
                 choice = callbackFullData.get("choice", None)
+                name = callbackFullData.get("name", None)
                 operation = callbackFullData.get("operation", None)
                 if tag == "states_command":
                     url = f"{base_url}:{port}/{api_key}/monitorStates/{group_key}/{choice}"
@@ -497,8 +499,10 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                 elif tag == "monitors_subcommand":
                     if isinstance(SETTINGS["MONITOR"]["PROXY_PAGE_URL"], dict):
                         proxyPageUrl = SETTINGS["MONITOR"]["PROXY_PAGE_URL"]["data"]
-                    if isinstance(SETTINGS["MONITOR"]["TIMEOUT"], dict):
-                        timeout = SETTINGS["MONITOR"]["TIMEOUT"]["data"]
+                    if isinstance(SETTINGS["MONITOR"]["PROXY_PAGE_TIMEOUT"], dict):
+                        timeout = SETTINGS["MONITOR"]["PROXY_PAGE_TIMEOUT"]["data"]
+                    if isinstance(SETTINGS["MONITOR"]["VERIFY_ACTIVE_LINKS_TIMEOUT"], dict):
+                        verifyActiveLinksTimeout = SETTINGS["MONITOR"]["VERIFY_ACTIVE_LINKS_TIMEOUT"]["data"]
                         thisMonitor = Monitor(
                             update=update,
                             context=context,
@@ -508,8 +512,10 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             apiKey=api_key,
                             groupKey=group_key,
                             mid=mid,
+                            name=name,
                             proxyPageUrl=proxyPageUrl,
-                            timeout=timeout
+                            proxyPageTimeout=timeout,
+                            verifyActiveLinksTimeout=verifyActiveLinksTimeout
                         )
                     if choice == "snapshot":
                         if not await thisMonitor.getSnapshot():
@@ -557,19 +563,19 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                                 return
                             logger.debug(msg="Substream activate successfully, sending link...")
                             await query.answer(
-                                text=f"Substream activate successfully, sending link... \u26A0\ufe0f",
+                                text=f"Substream activate successfully, sending link... \U0001F44D",
                                 show_alert=True,
                             )
                         else:
                             logger.debug(msg="Substream already active, sending link...")
                             await query.answer(
-                                text=f"Substream already active, sending link... \u26A0\ufe0f",
+                                text=f"Substream already active, sending link... \U0001F44D",
                                 show_alert=True,
                             )
                         message = await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=f'<a href="{subStream.completeUrl}">Click to play</a>',
-                        parse_mode=ParseMode.HTML,
+                            chat_id=chat_id,
+                            text=f'<a href="{subStream.completeUrl}"><b><i>{subStream.monitor.name}</i></b> substream link, it will disappear when substream becomes inactive</a>',
+                            parse_mode=ParseMode.HTML,
                         )
                         if not activeSubstreams:
                             activeSubstreams.append({
@@ -589,7 +595,6 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                                     "sub_stream": subStream,
                                     "sub_url": subStream.completeUrl
                                 })
-                        print(activeSubstreams)
                     except Exception as e:
                         logger.error(msg=f"Error activating substream: {e}")
 
@@ -776,6 +781,11 @@ async def starter(app: Application) -> None:
     taskList: list[asyncio.tasks.Task] = []
     await app.initialize()
     await app.start()
+    taskList.append(
+        asyncio.create_task(
+            coro=removeInactiveSubstreamLinks(), name="removeInactiveSubstreamLinks"
+        )
+    )
     if app.updater:
         taskList.append(asyncio.create_task(coro=app.updater.start_polling(drop_pending_updates=True), name="Polling"))
     if SERVERAPI:
@@ -810,6 +820,24 @@ async def appShutdown() -> None:
                 await APPLICATION.shutdown()
     else:
         shutdownEvent.set()
+
+async def removeInactiveSubstreamLinks() -> None:
+    """
+    Periodically checks for inactive substreams and removes them, deleting the associated Telegram message.
+
+    This function runs indefinitely and is intended to be used as a task with asyncio.create_task()
+    """
+    while True:
+        if activeSubstreams:
+            for activeSubstream in activeSubstreams:
+                subStream: SubStream = activeSubstream["sub_stream"]
+                if not await subStream.verifySubStream():
+                    message_id: int = activeSubstream["message_id"]
+                    if isinstance(APPLICATION, Application):
+                        await APPLICATION.bot.delete_message(chat_id=subStream.monitor.CHAT_ID, message_id=message_id)
+                        activeSubstreams.remove(activeSubstream)
+                        logger.debug(msg=f"Substream {subStream.monitor.MID} now inactive, link removed")
+        await asyncio.sleep(delay=5)
 
 
 if __name__ == "__main__":
