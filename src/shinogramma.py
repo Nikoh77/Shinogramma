@@ -1,9 +1,7 @@
 # This software (aka bot) is intended as a client to conveniently control Shinobi CCTV (more info at https://shinobi.video) through Telegram.
 # I am Nikoh (nikoh@nikoh.it), if you think this bot is useful please consider helping me improving it on github
 # or donate me a coffee
-
 import asyncio
-# from re import S
 import signal
 from telegram.ext import (
     Application,
@@ -37,6 +35,7 @@ from settings import IniSettings, Url, IP, LogLevel
 from monitor import Monitor, SubStream
 from pathlib import Path
 from video import Video
+
 # import socket
 """
 Below constant is required to set the log level only for some modules directly involved by
@@ -678,6 +677,7 @@ def buildApp() -> bool:
     try:
         # Required by pipreqs in the place of python-telegram-bot[callback-data]
         import cachetools  # type: ignore
+
     except ImportError:
         logger.critical(msg="Cachetools module not found")
         return False

@@ -1,8 +1,6 @@
 cachetools
 colorlog
-httpx
-humanize
-m3u8
 python-telegram-bot
 quart
+humanize
 git+https://github.com/Nikoh77/settings.git@main

@@ -17,7 +17,7 @@ class Monitor:
     SETTINGS: dict[str, object | dict[str, Any]] = {
         "PROXY_PAGE_URL": {"data": None, "typeOf": Url, "required": True},
         "PROXY_PAGE_TIMEOUT": {"data": 6000, "typeOf": int, "required": False}, # in milliseconds
-        "VERIFY_ACTIVE_LINKS_TIMEOUT": {"data": 5, "typeOf": int, "required": False}, # in seconds
+        "VERIFY_ACTIVE_LINKS_TIMEOUT": {"data": 60, "typeOf": int, "required": False}, # in seconds
     }
     def __init__(
         self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid,
