@@ -63,7 +63,7 @@ port - optional - default: 5001 - the port for the endpoint (webhook) where Shin
 requests_rate_limit - optional - default: 10 - the minimum time between the notification of one event and the next, to avoid notification bombs by Shinobi.
 webhooks - optional - default: none - a flat dictionary where keys are tag and values are endpoint/url to call; if Shinobi triggers an event with this tag Shinogramma call url in the value. You can define tags for each monitor on its identity section.
 [MONITOR]
-proxy_page_url - required - the proxy web page url (where you placed our stream.html page linke https://www.example.com/sream.html)
+proxy_page_url - required - the proxy web page url (where you placed our stream.html page like https://www.example.com/sream.html)
 proxy_page_timeout - optional - default: 6000 - the maximum time (in milliseconds) the proxy web page tries to connect to your streams.
 verify_active_links_timeout - optional - default: 60 - time period (in seconds) for checking and removing links to inactive substreams.
 ```
