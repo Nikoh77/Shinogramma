@@ -32,7 +32,7 @@ When started for the first time, it will ask you to enter the necessary data for
 1) Telegram API key, which BotFather will provide you when you create your bot.
 2) Shinobi API key, which you can generate directly in your Shinobi user area.
 3) Shinobi group key, found at the top in the Shinobi account settings.
-4) Shinobi base URL, the web address of your panel, like https://www.example.com/myshinobi
+4) Shinobi base URL, the web address of your panel, like `https://www.example.com/myshinobi`
 5) Shinobi port number, usually 8080, but depending on the environment, it could also be 443, 80, or other.
 6) Monitor proxy page url, you need to publish our web page stream.html to a web server somewhere.
 
