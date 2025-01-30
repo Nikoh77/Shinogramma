@@ -34,6 +34,7 @@ When started for the first time, it will ask you to enter the necessary data for
 3) Shinobi group key, found at the top in the Shinobi account settings.
 4) Shinobi base URL, the web address of your panel, like https://www.example.com/myshinobi
 5) Shinobi port number, usually 8080, but depending on the environment, it could also be 443, 80, or other.
+6) Monitor proxy page url, you need to publish our web page stream.html to a web server somewhere.
 
 In addition to the mandatory parameters, there are some optional ones, such as chat_id.
 Using chat_id, you can restrict the usage of the bot to only the Telegram users you desire, such as you and your family members, so that no one else can manipulate your things ;-)\
@@ -61,6 +62,10 @@ server - optional - default: false - set to true (or 1) to enable event notifica
 port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
 requests_rate_limit - optional - default: 10 - the minimum time between the notification of one event and the next, to avoid notification bombs by Shinobi.
 webhooks - optional - default: none - a flat dictionary where keys are tag and values are endpoint/url to call; if Shinobi triggers an event with this tag Shinogramma call url in the value. You can define tags for each monitor on its identity section.
+[MONITOR]
+proxy_page_url - required - the proxy web page url (where you placed our stream.html page linke https://www.example.com/sream.html)
+proxy_page_timeout - optional - default: 6000 - the maximum time (in milliseconds) the proxy web page tries to connect to your streams.
+verify_active_links_timeout - optional - default: 60 - time period (in seconds) for checking and removing links to inactive substreams.
 ```
 Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
 

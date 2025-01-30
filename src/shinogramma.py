@@ -16,7 +16,7 @@ from telegram.ext import (
     PersistenceInput,
 )
 from telegram import (
-    Bot,
+    # Bot,
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -36,7 +36,6 @@ from monitor import Monitor, SubStream
 from pathlib import Path
 from video import Video
 
-# import socket
 """
 Below constant is required to set the log level only for some modules directly involved by
 this application and avoid seeing the debug of all modules in the tree.
@@ -83,7 +82,8 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
 commands: list = []
 confParam, confParamVal = range(2)
 shutdownEvent = asyncio.Event()
-activeSubstreams: list[dict[str, Any]] = []
+# activeSubstreams: list[dict[str, Any]] = []
+activeSubstreams: dict[str, dict[str, Any]] = {}
 
 # Start logging
 logger = colorlog.getLogger(name=__name__)
@@ -573,27 +573,59 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             )
                         message = await context.bot.send_message(
                             chat_id=chat_id,
-                            text=f'<a href="{subStream.completeUrl}"><b><i>{subStream.monitor.name}</i></b> substream link, it will disappear when substream becomes inactive</a>',
+                            text=(
+                                f'<a href="{subStream.completeUrl}">'
+                                f'<b><i>{subStream.monitor.name}</i></b> substream link, '
+                                'it will disappear when substream becomes inactive</a>'
+                            ),
                             parse_mode=ParseMode.HTML,
                         )
                         if not activeSubstreams:
-                            activeSubstreams.append({
-                                "message_id": message.message_id,
+                            logger.debug(msg="No active substreams, adding new one")
+                            activeSubstreams[
+                                str(object=subStream.completeUrl)
+                            ] = {
+                                "identifier": {chat_id: [message.message_id]},
                                 "sub_stream": subStream,
-                                "sub_url": subStream.completeUrl
-                            })
+                            }
                         else:
-                            for activeSubstream in activeSubstreams:
-                                present = False
-                                if subStream.completeUrl == activeSubstream["sub_url"]:
-                                    present = True
-                                    break
-                            if not present:
-                                activeSubstreams.append({
-                                    "message_id": message.message_id,
+                            activeSubstreamsCopy = activeSubstreams.copy()
+                            if subStream.completeUrl in activeSubstreamsCopy.keys():
+                                for key, value in activeSubstreamsCopy.items():
+                                    if subStream.completeUrl == key:
+                                        if not chat_id in value["identifier"].keys():
+                                            value["identifier"][chat_id] = [message.message_id]
+                                        else:
+                                            value["identifier"][chat_id].append(message.message_id)
+                            else:
+                                activeSubstreams[
+                                    str(object=subStream.completeUrl)
+                                ] = {
+                                    "identifier": {chat_id: [message.message_id]},
                                     "sub_stream": subStream,
-                                    "sub_url": subStream.completeUrl
-                                })
+                                }
+                        # logger.debug(
+                        #     msg=f"Active substreams: {json.dumps(obj=activeSubstreams, indent=4)}"
+                        # )
+
+                                # isPresent = False
+                            #     if subStream.completeUrl == activeSubstream:
+                            #         if (
+                            #             chat_id
+                            #             in activeSubstreams[
+                            #                 str(object=subStream.completeUrl)
+                            #             ]["identifier"].keys()
+                            #         ):
+                            #             isPresent = True
+                            #             break
+                            #         else:
+                            #             activeSubstreams[str(object=subStream.completeUrl)]["identifier"][chat_id] = [message.message_id]
+                            # if not isPresent:
+                            #     activeSubstreams[str(object=subStream.completeUrl)] = {
+                            #         "identifier": {chat_id: message.message_id},
+                            #         "sub_stream": subStream,
+                            #         "sub_url": subStream.completeUrl
+                            #     }
                     except Exception as e:
                         logger.error(msg=f"Error activating substream: {e}")
 
@@ -828,16 +860,29 @@ async def removeInactiveSubstreamLinks() -> None:
     This function runs indefinitely and is intended to be used as a task with asyncio.create_task()
     """
     while True:
-        if activeSubstreams:
-            for activeSubstream in activeSubstreams:
-                subStream: SubStream = activeSubstream["sub_stream"]
-                if not await subStream.verifySubStream():
-                    message_id: int = activeSubstream["message_id"]
-                    if isinstance(APPLICATION, Application):
-                        await APPLICATION.bot.delete_message(chat_id=subStream.monitor.CHAT_ID, message_id=message_id)
-                        activeSubstreams.remove(activeSubstream)
-                        logger.debug(msg=f"Substream {subStream.monitor.MID} now inactive, link removed")
-        await asyncio.sleep(delay=5)
+        try:
+            if activeSubstreams:
+                activeSubstreamsCopy = activeSubstreams.copy()
+                # logger.debug(msg = f"There are {len(activeSubstreamsCopy)} active substreams:\n")
+                for key, value in activeSubstreamsCopy.items():
+                    # logger.debug(msg=f"{key} active in {len(value['identifier'].keys())} chat")
+                    # for chat_id in value["identifier"].keys():
+                    #     logger.debug(msg=f"chat_id: {chat_id}")
+                    #     for message_id in value["identifier"][chat_id]:
+                    #         logger.debug(msg=f"message_id: {message_id}")
+                    subStream: SubStream = value["sub_stream"]
+                    # logger.debug(msg=activeSubstreamsCopy)
+                    if not await subStream.verifySubStream():
+                        for chatID, messageList in value["identifier"].items():
+                            logger.debug(msg=f"chat id: {chatID} has {len(messageList)} messages")
+                            if isinstance(APPLICATION, Application):
+                                for message in messageList:
+                                    await APPLICATION.bot.delete_message(chat_id=chatID, message_id=message)
+                        del activeSubstreams[key]
+                        logger.debug(msg=f"Substream {subStream.completeUrl} now inactive, link removed")
+            await asyncio.sleep(delay=5)
+        except Exception as e:
+            logger.error(msg=f"Errore nel ciclo infinito: {e}")
 
 
 if __name__ == "__main__":
