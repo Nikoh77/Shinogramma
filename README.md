@@ -57,15 +57,17 @@ port - required - default: 8080 - the port number to complete the address.
 loglevel - optional - default: info - the debug level of the app. If you encounter issues, try changing it to debug.
 persistence - optional - default: false - old buttons in the chat with the bot will remain functional even after the bot restarts. This consumes more system resources.
 bans - optional - default: none - this parameters are particularly useful for restricting (banning) specific Telegram user IDs from accessing certain functions.
+verify_active_links_timeout - optional - default: 60 - time period (in seconds) for checking and removing links to inactive substreams.
+
 [WEBHOOK]
 server - optional - default: false - set to true (or 1) to enable event notifications.
 port - optional - default: 5001 - the port for the endpoint (webhook) where Shinogramma listens for event notifications sent by your Shinobi (requires enabling webhook notifications).
 requests_rate_limit - optional - default: 10 - the minimum time between the notification of one event and the next, to avoid notification bombs by Shinobi.
 webhooks - optional - default: none - a flat dictionary where keys are tag and values are endpoint/url to call; if Shinobi triggers an event with this tag Shinogramma call url in the value. You can define tags for each monitor on its identity section.
+
 [MONITOR]
-proxy_page_url - required - the proxy web page url (where you placed our stream.html page like https://www.example.com/sream.html)
+proxy_page_url - required - the proxy web page url (where you placed our stream.html page like https://www.example.com/stream.html)
 proxy_page_timeout - optional - default: 6000 - the maximum time (in milliseconds) the proxy web page tries to connect to your streams.
-verify_active_links_timeout - optional - default: 60 - time period (in seconds) for checking and removing links to inactive substreams.
 ```
 Below is a table detailing the possible keys within the `bans` dictionary of the configuration file:
 

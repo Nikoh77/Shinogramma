@@ -1,3 +1,4 @@
+from doctest import debug
 import logging
 from httpQueryUrl import queryUrl
 import inspect
@@ -17,11 +18,10 @@ class Monitor:
     SETTINGS: dict[str, object | dict[str, Any]] = {
         "PROXY_PAGE_URL": {"data": None, "typeOf": Url, "required": True},
         "PROXY_PAGE_TIMEOUT": {"data": 6000, "typeOf": int, "required": False}, # in milliseconds
-        "VERIFY_ACTIVE_LINKS_TIMEOUT": {"data": 60, "typeOf": int, "required": False}, # in seconds
     }
     def __init__(
         self, update, context, chatId, baseUrl, port, apiKey, groupKey, mid,
-        name, proxyPageUrl, proxyPageTimeout, verifyActiveLinksTimeout) -> None:
+        name, proxyPageUrl, proxyPageTimeout) -> None:
         self.UPDATE = update
         self.CONTEXT = context
         self.CHAT_ID = chatId
@@ -33,13 +33,12 @@ class Monitor:
         self.name = name
         self.proxyPageUrl = proxyPageUrl
         self.proxyPageTimeout = proxyPageTimeout
-        self.verifyActiveLinksTimeout = verifyActiveLinksTimeout
         self.url = f"{self.BASEURL}:{self.PORT}/{self.API_KEY}/monitor/{self.GROUP_KEY}/{self.MID}"
         self.query = update.callback_query
         self.TYPES = {
-            "hls": "s.m3u8",
-            "mp4": "s.mp4",
-            "flv": "s.flv",
+            "hls": "/s.m3u8",
+            "mp4": "/s.mp4",
+            "flv": "/s.flv",
             "mjpeg": "",
         }
 
@@ -79,7 +78,7 @@ class Monitor:
         HERE = inspect.currentframe()
         assert HERE is not None
         tag = HERE.f_code.co_name  # type: ignore
-        data = await queryUrl(url=self.url, debug=False)
+        data = await queryUrl(url=self.url, debug=True)
         if data:
             dataInJson = data.json()
             streams = dataInJson[0]["streams"]
@@ -91,14 +90,13 @@ class Monitor:
                 )
                 return False
             streamType = dataInJson[0]["details"]["stream_type"]
-            subStream = SubStream(monitor=self, verifyActiveLinksTimeout=self.verifyActiveLinksTimeout)
+            subStream = SubStream(monitor=self)
+            await subStream.verifySubStream(data=data)
             if streamType == "useSubstream":
                 logger.info(msg=f"Monitor {self.MID} is set to use substream...")
-                await subStream.verifySubStream(data=data)
             else:
                 logger.info(msg=f"Monitor {self.MID} is set to use main stream...")
                 if subStream.endOfUrl not in streams:
-                    streams.append(subStream.endOfUrl)
                     logger.debug(msg="Substream added to stream list...")
             buttons: list[list] = []
             for stream in streams:
@@ -232,7 +230,7 @@ class Monitor:
                 await self.query.answer(
                     text="No map data for this monitor...\u26A0\ufe0f", show_alert=True
                 )
-            print(type(data), data)
+            logger.debug(msg=f"{type(data)}, {data}")
         else:
             await self.CONTEXT.bot.send_message(
                 chat_id=self.CHAT_ID,
@@ -288,7 +286,6 @@ class SubStream:
     def __init__(
         self,
         monitor: Monitor,
-        verifyActiveLinksTimeout: int,
     ) -> None:
         self.monitor: Monitor = monitor
         self.SUBSTREAM_CHANNEL = 1
@@ -296,7 +293,6 @@ class SubStream:
         self.kindOfStream: str | None = None
         self.endOfUrl: str | None = None
         self.completeUrl: str | None = None
-        self.verifyActiveLinksTimeout: int = verifyActiveLinksTimeout
 
     async def verifySubStream(self, data = None) -> bool:
         if not data:
@@ -306,9 +302,11 @@ class SubStream:
             logger.debug(msg="Using provided data...")
         if data:
             dataInJson = data.json()
-            self.kindOfStream = dataInJson[0]["details"]["substream"]["output"]["stream_type"]
+            self.kindOfStream = None
+            parts = dataInJson[0]["streams"][0].split("/")
+            self.kindOfStream = parts[2]
             if self.kindOfStream and self.kindOfStream in self.monitor.TYPES.keys():
-                self.endOfUrl = f"/{self.monitor.API_KEY}/{self.kindOfStream}/{self.monitor.GROUP_KEY}/{self.monitor.MID}/{self.SUBSTREAM_CHANNEL}/{self.monitor.TYPES[self.kindOfStream]}"
+                self.endOfUrl = f"/{self.monitor.API_KEY}/{self.kindOfStream}/{self.monitor.GROUP_KEY}/{self.monitor.MID}/{self.SUBSTREAM_CHANNEL}{self.monitor.TYPES[self.kindOfStream]}"
                 self.completeUrl = f"{self.monitor.BASEURL}:{self.monitor.PORT}{self.endOfUrl}"
                 if self.completeUrl.endswith(self.monitor.TYPES["hls"]) and self.monitor.proxyPageUrl:
                     self.completeUrl = f"{self.monitor.proxyPageUrl}?timeout={self.monitor.proxyPageTimeout}&url={self.completeUrl}"

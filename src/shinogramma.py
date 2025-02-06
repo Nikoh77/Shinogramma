@@ -74,6 +74,11 @@ SETTINGS: dict[str, dict[str, object | dict[str, Any]]] = {
         "LOGLEVEL": {"data": "info", "typeOf": LogLevel, "required": False},
         "PERSISTENCE": {"data": False, "typeOf": bool, "required": False},
         "BANS": {"data": None, "typeOf": dict, "required": False},
+        "VERIFY_ACTIVE_LINKS_TIMEOUT": {
+            "data": 60,
+            "typeOf": int,
+            "required": False,
+        },  # in seconds
     },
     "WEBHOOK": {"INCLUDE": WebhookServer},
     "MONITOR": {"INCLUDE": Monitor},
@@ -500,8 +505,6 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                         proxyPageUrl = SETTINGS["MONITOR"]["PROXY_PAGE_URL"]["data"]
                     if isinstance(SETTINGS["MONITOR"]["PROXY_PAGE_TIMEOUT"], dict):
                         timeout = SETTINGS["MONITOR"]["PROXY_PAGE_TIMEOUT"]["data"]
-                    if isinstance(SETTINGS["MONITOR"]["VERIFY_ACTIVE_LINKS_TIMEOUT"], dict):
-                        verifyActiveLinksTimeout = SETTINGS["MONITOR"]["VERIFY_ACTIVE_LINKS_TIMEOUT"]["data"]
                         thisMonitor = Monitor(
                             update=update,
                             context=context,
@@ -514,7 +517,6 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                             name=name,
                             proxyPageUrl=proxyPageUrl,
                             proxyPageTimeout=timeout,
-                            verifyActiveLinksTimeout=verifyActiveLinksTimeout
                         )
                     if choice == "snapshot":
                         if not await thisMonitor.getSnapshot():
@@ -880,9 +882,10 @@ async def removeInactiveSubstreamLinks() -> None:
                                     await APPLICATION.bot.delete_message(chat_id=chatID, message_id=message)
                         del activeSubstreams[key]
                         logger.debug(msg=f"Substream {subStream.completeUrl} now inactive, link removed")
-            await asyncio.sleep(delay=5)
+            if isinstance(SETTINGS["SHINOGRAMMA"]["VERIFY_ACTIVE_LINKS_TIMEOUT"], dict):
+                await asyncio.sleep(delay=SETTINGS["SHINOGRAMMA"]["VERIFY_ACTIVE_LINKS_TIMEOUT"]["data"])
         except Exception as e:
-            logger.error(msg=f"Errore nel ciclo infinito: {e}")
+            logger.error(msg=f"Error in loop removing inactive substreams: {e}")
 
 
 if __name__ == "__main__":
