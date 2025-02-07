@@ -97,6 +97,7 @@ class Monitor:
             else:
                 logger.info(msg=f"Monitor {self.MID} is set to use main stream...")
                 if subStream.endOfUrl not in streams:
+                    streams.append(subStream.endOfUrl)
                     logger.debug(msg="Substream added to stream list...")
             buttons: list[list] = []
             for stream in streams:
