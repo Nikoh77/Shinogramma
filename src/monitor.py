@@ -303,9 +303,9 @@ class SubStream:
             logger.debug(msg="Using provided data...")
         if data:
             dataInJson = data.json()
-            self.kindOfStream = None
-            parts = dataInJson[0]["streams"][0].split("/")
-            self.kindOfStream = parts[2]
+            self.kindOfStream = dataInJson[0]["details"]["substream"]["output"][
+                "stream_type"
+            ]
             if self.kindOfStream and self.kindOfStream in self.monitor.TYPES.keys():
                 self.endOfUrl = f"/{self.monitor.API_KEY}/{self.kindOfStream}/{self.monitor.GROUP_KEY}/{self.monitor.MID}/{self.SUBSTREAM_CHANNEL}{self.monitor.TYPES[self.kindOfStream]}"
                 self.completeUrl = f"{self.monitor.BASEURL}:{self.monitor.PORT}{self.endOfUrl}"

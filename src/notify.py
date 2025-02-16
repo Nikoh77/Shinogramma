@@ -37,7 +37,7 @@ class WebhookServer():
         shinobiPort: int,
         shinobiApiKey: str,
         groupKey: str,
-        webhooks: AddressKList,
+        webhooks: AddressKList | None,
         port: int,
         requestsRateLimit: float,
         toNotify: list,
@@ -60,6 +60,29 @@ class WebhookServer():
             view_func=self.notifier,
             methods=["POST", "GET"],
         )
+        self.app.add_url_rule(
+            rule="/test/",
+            endpoint="test",
+            view_func=self.test,
+            methods=["POST", "GET"],
+        )
+
+    async def favicon(self) -> Response:
+        """
+        Handles requests for the favicon.
+        Returns:
+            Response: An HTTP response with a 204 status code indicating no content.
+        """
+        return Response(status=204)
+
+    async def test(self) -> Response:
+        """
+        Handles requests for the test endpoint.
+        Returns:
+            Response: An HTTP response with a 200 status code and the string "Test".
+        """
+        await self.webhookcalls(webhooks=self.webhooks, tags=["alarm", "motion"])
+        return Response(response="Test", status=200)
 
     def calculate_md5(self, content) -> str:
         md5Hash = hashlib.md5()
@@ -169,26 +192,48 @@ class WebhookServer():
         #     await self. webhookcalls(webhooks=self.webhooks, tags=tags)
         return Response(response="Success", status=200)
 
-    async def webhookcalls(self, webhooks: AddressKList, tags: list) -> None:
-        for tag, webhook in webhooks.items():
-            if tag in tags:
-                print("OK", "TAG:", tag, "WEBHOOK:", webhook)
-                try:
-                    await queryUrl(
-                        url=f"{webhook}/alarm",
-                        debug=True,
-                    )
-                except Exception as e:
-                    logger.error(msg=f"Error calling webhook {webhook}: {e}")
+    async def webhookcalls(self, webhooks: AddressKList | None, tags: list | None = None):
+        if webhooks is not None:
+            if tags is not None:
+                for tag, webhook in webhooks.items():
+                    calls: int = 0
+                    if tag in tags:
+                        logger.debug(msg=f"OK found TAG: {tag} with WEBHOOK: {webhook}")
+                        try:
+                            reponse = await queryUrl(
+                                url=f"{webhook}",
+                                debug=True,
+                            )
+                            if reponse:
+                                logger.debug(msg=f"Webhook {webhook} called successfully")
+                                calls += 1
+                            else:
+                                logger.error(msg=f"Connection error, no response from {webhook}")
+                                return False
+                        except Exception as e:
+                            logger.error(msg=f"Error calling webhook {webhook}: {e}")
+                            return False
+                    else:
+                        logger.debug(msg=f"Tag {tag} not in webhook tags keys")
+            else:
+                logger.debug(msg="No tag list to check")
+                return False
+        else:
+            logger.debug(msg="No webhooks directive found in settings")
+            return False
+        if not calls:
+            logger.debug(msg="No calls made")
+            return False
+        return True
 
-            # for tag, webhook in self.webhooks.items():
-            #     asyncio.create_task(
-            #         coro=queryUrl(
-            #             url=f"{self.webhooks[webhook]}/alarm",
-            #             debug=True,
-            #             timeout=20,
-            #         )
-            #     )
+        # for tag, webhook in self.webhooks.items():
+        #     asyncio.create_task(
+        #         coro=queryUrl(
+        #             url=f"{self.webhooks[webhook]}/alarm",
+        #             debug=True,
+        #             timeout=20,
+        #         )
+        #     )
 
     def mediaGroupFormatter(self, files: dict, messageToSend: str) -> list[InputMediaPhoto]:
         mediaGroup = []
@@ -215,3 +260,6 @@ class WebhookServer():
                 snapshotUrl = imagePath + "?" + avoidCacheUrl
                 return snapshotUrl
         return None
+    
+if __name__ == "__main__":
+    raise SystemExit
