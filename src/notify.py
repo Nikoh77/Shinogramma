@@ -188,13 +188,14 @@ class WebhookServer():
                     await self.APPLICATION.bot.send_message(
                         chat_id=user, text=messageToSend, parse_mode="HTML"
                     )
-        # if self.webhooks:
-        #     await self. webhookcalls(webhooks=self.webhooks, tags=tags)
+        if self.webhooks:
+            await self.webhookcalls(webhooks=self.webhooks, tags=tags)
+            # TODO implementare logica di ritorno bool presente in webhookcalls
         return Response(response="Success", status=200)
 
     async def webhookcalls(self, webhooks: AddressKList | None, tags: list | None = None):
-        if webhooks is not None:
-            if tags is not None:
+        if webhooks:
+            if tags:
                 for tag, webhook in webhooks.items():
                     calls: int = 0
                     if tag in tags:
@@ -202,7 +203,7 @@ class WebhookServer():
                         try:
                             reponse = await queryUrl(
                                 url=f"{webhook}",
-                                debug=True,
+                                # timeout=2,
                             )
                             if reponse:
                                 logger.debug(msg=f"Webhook {webhook} called successfully")
