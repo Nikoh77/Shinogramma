@@ -1,4 +1,3 @@
-from doctest import debug
 import logging
 from httpQueryUrl import queryUrl
 import inspect
