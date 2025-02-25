@@ -78,7 +78,7 @@ class Monitor:
         HERE = inspect.currentframe()
         assert HERE is not None
         tag = HERE.f_code.co_name  # type: ignore
-        data = await queryUrl(url=self.url, debug=True)
+        data = await queryUrl(url=self.url, debug=False)
         if data:
             dataInJson = data.json()
             streams = dataInJson[0]["streams"]

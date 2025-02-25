@@ -251,52 +251,51 @@ async def states_command(update: Update, context: ContextTypes.DEFAULT_TYPE, cha
                 api_key = SETTINGS["SHINOBI"]["API_KEY"]["data"]
             if isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict):
                 group_key = SETTINGS["SHINOBI"]["GROUP_KEY"]["data"]
+            if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict):
+                bans = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]
             url = f"{base_url}:{port}/{api_key}/monitorStates/{group_key}"
             data = await queryUrl(url=url)
             if data:
                 dataInJson = data.json()
                 states = []
-                if SETTINGS["SHINOGRAMMA"]["BANS"] and isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict):
-                    for i in dataInJson["presets"]:
-                        var = f"state_{i['name']}"
-                        if (
-                            var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys()
-                            and SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]
-                        ):
+                for i in dataInJson["presets"]:
+                    var = f"state_{i['name']}"
+                    if bans:
+                        if var in bans.keys() and bans[var]:
                             try:
-                                if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
+                                if chat_id in bans[var]:
                                     continue
-                            except TypeError as e:
-                                if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
+                            except TypeError:
+                                if chat_id == bans[var]:
                                     continue
                             except Exception as e:
                                 logger.error(msg=f"Error verifyng BANS for states: {e}")
-                        states.append(i["name"])
-                    if len(states) > 0:
-                        buttons = []
-                        for state in states:
-                            buttons.append(
-                                [
-                                    InlineKeyboardButton(
-                                        text=state,
-                                        callback_data={
-                                            "tag": tag,
-                                            "choice": state,
-                                        },
-                                    )
-                                ]
-                            )
-                        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text="Select one state to activate:",
-                            reply_markup=reply_markup,
+                    states.append(i["name"])
+                if len(states) > 0:
+                    buttons = []
+                    for state in states:
+                        buttons.append(
+                            [
+                                InlineKeyboardButton(
+                                    text=state,
+                                    callback_data={
+                                        "tag": tag,
+                                        "choice": state,
+                                    },
+                                )
+                            ]
                         )
-                    else:
-                        logger.debug(msg="No states found \u26A0\ufe0f")
-                        await context.bot.send_message(
-                            chat_id=chat_id, text="No states found \u26A0\ufe0f"
-                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Select one state to activate:",
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    logger.debug(msg="No states found \u26A0\ufe0f")
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="No states found \u26A0\ufe0f"
+                    )
         return None
 
 
@@ -318,53 +317,52 @@ async def monitors_command(
                 api_key = SETTINGS["SHINOBI"]["API_KEY"]["data"]
             if isinstance(SETTINGS["SHINOBI"]["GROUP_KEY"], dict):
                 group_key = SETTINGS["SHINOBI"]["GROUP_KEY"]["data"]
+            if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict):
+                bans = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]
             url = f"{base_url}:{port}/{api_key}/monitor/{group_key}"
             data = await queryUrl(url=url)
             if data:
                 dataInJson = data.json()
                 monitors = []
-                if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict):
-                    for i in dataInJson:
-                        var = f"mid_{i['mid']}"
-                        if (
-                            var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys()
-                            and SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]
-                        ):
+                for i in dataInJson:
+                    var = f"mid_{i['mid']}"
+                    if bans:
+                        if var in bans.keys() and bans[var]:
                             try:
-                                if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
+                                if chat_id in bans[var]:
                                     continue
-                            except TypeError as e:
-                                if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
+                            except TypeError:
+                                if chat_id == bans[var]:
                                     continue
                             except Exception as e:
                                 logger.error(msg=f"Error verifyng BANS for monitors: {e}")
-                        monitors.append({"name": i["name"], "id": i["mid"]})
-                    if len(monitors) > 0:
-                        buttons = []
-                        for monitor in monitors:
-                            buttons.append(
-                                [
-                                    InlineKeyboardButton(
-                                        text=monitor["name"],
-                                        callback_data={
-                                            "tag": tag,
-                                            "mid": monitor["id"],
-                                            "choice": monitor["name"],
-                                        },
-                                    )
-                                ]
-                            )
-                        reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text="Select one monitor:",
-                            reply_markup=reply_markup,
+                    monitors.append({"name": i["name"], "id": i["mid"]})
+                if len(monitors) > 0:
+                    buttons = []
+                    for monitor in monitors:
+                        buttons.append(
+                            [
+                                InlineKeyboardButton(
+                                    text=monitor["name"],
+                                    callback_data={
+                                        "tag": tag,
+                                        "mid": monitor["id"],
+                                        "choice": monitor["name"],
+                                    },
+                                )
+                            ]
                         )
-                    else:
-                        logger.debug(msg="No monitors found \u26A0\ufe0f")
-                        await context.bot.send_message(
-                            chat_id=chat_id, text="No monitors found \u26A0\ufe0f"
-                        )
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="Select one monitor:",
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    logger.debug(msg="No monitors found \u26A0\ufe0f")
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="No monitors found \u26A0\ufe0f"
+                    )
         return None
 
 
@@ -377,44 +375,42 @@ async def BOTsettings_command(
         return desc
     else:
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict):
-            if (
-                "settings" in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys()
-                and SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["settings"]
-            ):
-                authorized = True
+            bans = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]
+            authorized = True
+            if bans and "settings" in bans.keys():
                 try:
-                    if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["settings"]:
+                    if chat_id in bans["settings"]:
                         authorized = False
-                except TypeError as e:
-                    if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"]["settings"]:
+                except TypeError:
+                    if chat_id == bans["settings"]:
                         authorized = False
                 except Exception as e:
-                    logger.error(msg=f"Error verifyng BANS for states: {e}")
-                if authorized:
-                    if update.effective_chat:
-                        tag = inspect.currentframe().f_code.co_name  # type: ignore
-                        keyboard = [
-                            [
-                                InlineKeyboardButton(
-                                    text="Terminate",
-                                    callback_data={
-                                        "tag": tag,
-                                        "choice": "terminate",
-                                    },
-                                ),
-                                InlineKeyboardButton(
-                                    text="Reboot",
-                                    callback_data={
-                                        "tag": tag,
-                                        "choice": "reboot",
-                                    },
-                                ),
-                            ]
+                    logger.error(msg=f"Error verifyng BANS for settings: {e}")
+            if authorized:
+                if update.effective_chat:
+                    tag = inspect.currentframe().f_code.co_name  # type: ignore
+                    keyboard = [
+                        [
+                            InlineKeyboardButton(
+                                text="Terminate",
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": "terminate",
+                                },
+                            ),
+                            InlineKeyboardButton(
+                                text="Reboot",
+                                callback_data={
+                                    "tag": tag,
+                                    "choice": "reboot",
+                                },
+                            ),
                         ]
-                        reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-                        await context.bot.send_message(
-                            chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
-                        )
+                    ]
+                    reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+                    await context.bot.send_message(
+                        chat_id=chat_id, text="kjjhfoksj", reply_markup=reply_markup
+                    )
         return None
 
 # End Telegram/Bot commands definition:
@@ -429,20 +425,19 @@ async def monitors_subcommand(
         choices = ["snapshot", "stream", "videos", "map", "configure"]
         buttons = []
         if isinstance(SETTINGS["SHINOGRAMMA"]["BANS"], dict):
+            bans = SETTINGS["SHINOGRAMMA"]["BANS"]["data"]
             for choice in choices:
                 var = f"do_{choice}"
-                if (
-                    var in SETTINGS["SHINOGRAMMA"]["BANS"]["data"].keys()
-                    and SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]
-                ):
-                    try:
-                        if chat_id in SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
-                            continue
-                    except TypeError as e:
-                        if chat_id == SETTINGS["SHINOGRAMMA"]["BANS"]["data"][var]:
-                            continue
-                    except Exception as e:
-                        logger.error(msg=f"Error verifyng BANS for monitors subcommand: {e}")
+                if bans:
+                    if var in bans.keys() and bans[var]:
+                        try:
+                            if chat_id in bans[var]:
+                                continue
+                        except TypeError as e:
+                            if chat_id == bans[var]:
+                                continue
+                        except Exception as e:
+                            logger.error(msg=f"Error verifyng BANS for monitors subcommand: {e}")
                 buttons.append(
                     [
                         InlineKeyboardButton(
@@ -606,28 +601,6 @@ async def callback_handler(update: Update, context: CallbackContext) -> None:
                                     "identifier": {chat_id: [message.message_id]},
                                     "sub_stream": subStream,
                                 }
-                        # logger.debug(
-                        #     msg=f"Active substreams: {json.dumps(obj=activeSubstreams, indent=4)}"
-                        # )
-
-                                # isPresent = False
-                            #     if subStream.completeUrl == activeSubstream:
-                            #         if (
-                            #             chat_id
-                            #             in activeSubstreams[
-                            #                 str(object=subStream.completeUrl)
-                            #             ]["identifier"].keys()
-                            #         ):
-                            #             isPresent = True
-                            #             break
-                            #         else:
-                            #             activeSubstreams[str(object=subStream.completeUrl)]["identifier"][chat_id] = [message.message_id]
-                            # if not isPresent:
-                            #     activeSubstreams[str(object=subStream.completeUrl)] = {
-                            #         "identifier": {chat_id: message.message_id},
-                            #         "sub_stream": subStream,
-                            #         "sub_url": subStream.completeUrl
-                            #     }
                     except Exception as e:
                         logger.error(msg=f"Error activating substream: {e}")
 
